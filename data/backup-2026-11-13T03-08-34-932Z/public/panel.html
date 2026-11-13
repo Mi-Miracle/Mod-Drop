@@ -1,0 +1,1232 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mod Drop — панель модерів</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌻</text></svg>">
+<link rel="stylesheet" href="/assets/theme.css">
+<link rel="stylesheet" href="/assets/card.css">
+<style>
+  /* ── вхід ── */
+  .login-wrap { min-height: calc(100vh - 88px); display: grid; place-items: center; }
+  .login { width: min(520px, 100%); padding: 38px 34px; text-align: center; }
+  .login .logo { justify-content: center; font-size: 26px; margin-bottom: 6px; }
+  .login .logo .flower { font-size: 40px; }
+  .login h1 { font-size: 26px; margin: 18px 0 8px; line-height: 1.2; }
+  .login p { color: var(--mute); margin: 0 0 26px; }
+  .login .btn { width: 100%; margin-top: 10px; }
+  .login .alt { margin-top: 18px; display: flex; flex-direction: column; gap: 8px; }
+  .login .err { margin-top: 16px; color: #ffb4b6; background: rgba(255,90,95,.12); border: 1px solid rgba(255,90,95,.3); padding: 10px 14px; border-radius: 12px; }
+  .feat { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; margin: -6px 0 26px; }
+  .feat span { font-size: 12.5px; padding: 5px 10px; border-radius: 99px; background: var(--glass2); border: 1px solid var(--line); color: var(--mute); }
+
+  /* ── основна сітка ── */
+  .main { display: grid; grid-template-columns: minmax(0, 1.18fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+  .main .col { min-width: 0; }
+  .sticky { position: sticky; top: 92px; z-index: 5; }
+  @media (max-width: 1000px) { .main { grid-template-columns: 1fr; } .sticky { position: static; } }
+  /* пошук усюди */
+  .gsearch { display: flex; gap: 8px; margin-bottom: 12px; }
+  .gres { margin: -2px 0 14px; padding: 12px; border-radius: 16px; background: rgba(5,5,10,.45); border: 1px solid rgba(61,139,255,.35); }
+  .gres .gh { display: flex; align-items: center; gap: 8px; margin: 2px 0 8px; }
+  .gres .gh b { font-size: 13px; }
+  .gres .gh .dim { font-size: 11.5px; }
+  .gres .gh .btn { margin-left: auto; padding: 5px 10px; font-size: 12px; }
+  .gres .row { display: grid; grid-auto-flow: column; grid-auto-columns: 96px; gap: 6px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 8px; overscroll-behavior: contain; }
+  .gres .row.yt { grid-auto-columns: 170px; }
+  .gres .row .r { aspect-ratio: 1; }
+  .gres .row.yt .r { aspect-ratio: auto; }
+  .gres .msg { color: var(--dim); font-size: 12.5px; padding: 4px 2px 10px; }
+  .gres .close { float: right; }
+  .src-seg { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; align-items: center; }
+  .src-seg button.chipb { font: 700 12px "Manrope", "Segoe UI", sans-serif; padding: 6px 11px; border-radius: 99px; border: 1px solid var(--line); background: var(--glass2); color: var(--mute); cursor: pointer; }
+  .src-seg button.chipb.on { background: linear-gradient(135deg, var(--sky), #2563eb); color: #fff; border-color: transparent; }
+  .src-seg .google { margin-left: auto; font: 700 12px "Manrope", "Segoe UI", sans-serif; padding: 6px 11px; border-radius: 99px; border: 1px solid var(--line); background: #fff; color: #222; text-decoration: none; }
+  .more { width: 100%; margin-top: 8px; }
+  .drop-hint { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; background: rgba(10,8,16,.6); border: 4px dashed var(--sun); font: 800 26px "Unbounded", sans-serif; color: var(--sun); pointer-events: none; }
+
+  /* пошук */
+  .search { margin-top: 14px; padding: 12px; border-radius: 14px; background: rgba(5,5,10,.35); border: 1px solid var(--line); }
+  .search form { display: flex; gap: 8px; }
+  .search .src { font-size: 11.5px; color: var(--dim); margin-top: 6px; }
+  .sres { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 6px; margin-top: 10px; max-height: 300px; overflow: auto; overscroll-behavior: contain; }
+  .sres:empty { display: none; }
+  .sres .r { position: relative; aspect-ratio: 1; border-radius: 10px; overflow: hidden; cursor: pointer; background: #000; border: 2px solid transparent; padding: 0; }
+  .sres .r img, .gres .r img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .gres .r { position: relative; border-radius: 10px; overflow: hidden; cursor: pointer; background: #000; border: 2px solid transparent; padding: 0; }
+  .gres .r:hover { border-color: rgba(255,197,49,.5); }
+  .gres .row.yt .r { background: rgba(255,255,255,.04); text-align: left; color: var(--text); font: inherit; }
+  .gres .row.yt .r img { aspect-ratio: 16 / 9; height: auto; }
+  .gres .r .d, .sres .r .d { position: absolute; right: 6px; top: 6px; font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 6px; background: rgba(0,0,0,.75); color: #fff; }
+  .gres .r .tt { padding: 6px 8px 0; font-size: 12px; font-weight: 700; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .gres .r .ch { padding: 2px 8px 8px; font-size: 11px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sres .r:hover { border-color: rgba(255,197,49,.5); }
+  .sres .r.sel { border-color: var(--sun); box-shadow: 0 0 0 3px rgba(255,197,49,.25); }
+  .sres.yt { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
+  .sres.yt .r { aspect-ratio: auto; background: rgba(255,255,255,.04); text-align: left; color: var(--text); font: inherit; }
+  .sres.yt .r img { aspect-ratio: 16 / 9; height: auto; }
+  .sres.yt .r .d { position: absolute; right: 6px; top: 6px; font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 6px; background: rgba(0,0,0,.75); }
+  .sres.yt .r .tt { padding: 6px 8px 0; font-size: 12.5px; font-weight: 700; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .sres.yt .r .ch { padding: 2px 8px 8px; font-size: 11.5px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sres .msg { grid-column: 1 / -1; color: var(--dim); font-size: 13px; padding: 8px 2px; }
+
+  /* улюблене */
+  .favs { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; max-height: 560px; overflow: auto; }
+  .fav { position: relative; border-radius: 14px; overflow: hidden; cursor: pointer; background: rgba(255,255,255,.04); border: 2px solid var(--line); transition: border-color .15s, transform .15s; }
+  .fav:hover { border-color: rgba(255,197,49,.45); transform: translateY(-2px); }
+  .fav.sel { border-color: var(--sun); box-shadow: 0 0 0 3px rgba(255,197,49,.22); }
+  .fav .th { aspect-ratio: 16 / 10; background: #0b0a10; display: grid; place-items: center; overflow: hidden; }
+  .fav .th img { width: 100%; height: 100%; object-fit: cover; }
+  .fav .th svg { width: 34px; height: 34px; color: var(--sun); }
+  .fav .th .txt { padding: 10px; font-size: 12px; color: var(--mute); line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+  .fav .lb { padding: 7px 9px 9px; }
+  .fav .lb div:first-child { font-size: 12.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .fav .lb div:last-child { font-size: 11px; color: var(--dim); }
+  .fav .del { position: absolute; top: 6px; right: 6px; width: 26px; height: 26px; border-radius: 8px; border: 0; cursor: pointer; background: rgba(0,0,0,.65); color: #fff; opacity: 0; transition: .15s; }
+  .fav:hover .del { opacity: 1; }
+  .hist .star { color: var(--dim); }
+  .hist .star.on { color: var(--sun); }
+
+  .manage { display: grid; grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr); gap: 18px; align-items: start; }
+  @media (max-width: 1000px) { .manage { grid-template-columns: 1fr; } }
+
+  /* дизайн: сітка позицій */
+  .design { display: grid; grid-template-columns: 190px 1fr; gap: 18px; }
+  @media (max-width: 560px) { .design { grid-template-columns: 1fr; } }
+  .posgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; padding: 6px; aspect-ratio: 16 / 10; border-radius: 14px;
+    background: rgba(5,5,10,.45); border: 1px solid var(--line); }
+  .posgrid button { border: 1px solid transparent; border-radius: 8px; background: rgba(255,255,255,.04); color: var(--mute); font-size: 15px; cursor: pointer; transition: .15s; }
+  .posgrid button:hover { background: rgba(255,197,49,.12); color: var(--text); }
+  .posgrid button.on { background: linear-gradient(135deg, var(--sun), var(--sun2)); color: #231700; box-shadow: 0 4px 14px rgba(255,170,30,.35); }
+  .posgrid button.auto { border-color: rgba(255,197,49,.5); color: var(--sun); }
+  .pos-auto { margin-top: 6px; width: 100%; font: 700 12.5px "Manrope", "Segoe UI", sans-serif; padding: 7px; border-radius: 10px; cursor: pointer;
+    background: rgba(5,5,10,.45); color: var(--mute); border: 1px solid var(--line); }
+  .pos-auto.on { color: #231700; background: linear-gradient(135deg, var(--sun), var(--sun2)); border-color: transparent; }
+
+  .screen.no-anim .md-card { animation: none !important; }
+  .screen.no-anim .md-card::after { animation: none; }
+
+  /* модератори */
+  .mods-tools { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+  .mods-tools form { flex: 1; min-width: 260px; }
+  .mods { display: flex; flex-direction: column; gap: 8px; max-height: 560px; overflow: auto; padding-right: 4px; }
+  .mod { display: grid; grid-template-columns: 42px 1fr; gap: 6px 12px; align-items: center; padding: 10px 12px; border-radius: 14px;
+    background: rgba(255,255,255,.035); border: 1px solid var(--line); transition: .15s; }
+  .mod.blocked { opacity: .62; }
+  .mod .av { width: 42px; height: 42px; border-radius: 50%; object-fit: cover; background: linear-gradient(135deg, var(--sun), var(--sky)); display: grid; place-items: center; font-weight: 800; color: #111; position: relative; }
+  .mod .av.on::after { content: ""; position: absolute; right: -1px; bottom: -1px; width: 12px; height: 12px; border-radius: 50%; background: var(--green); border: 2px solid #15131d; }
+  .mod .info { min-width: 0; }
+  .mod .nm { font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mod .badges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 3px; }
+  .badge2 { font-size: 11px; padding: 2px 7px; border-radius: 99px; background: var(--glass2); border: 1px solid var(--line); color: var(--mute); white-space: nowrap; }
+  .badge2.tw { color: #c8a6ff; border-color: rgba(145,70,255,.4); background: rgba(145,70,255,.12); }
+  .badge2.ok { color: #8ff0c4; border-color: rgba(52,211,153,.35); background: rgba(52,211,153,.1); }
+  .badge2.bad { color: #ffb4b6; border-color: rgba(255,90,95,.4); background: rgba(255,90,95,.12); }
+  .badge2.pz { color: var(--sun); border-color: rgba(255,197,49,.4); background: rgba(255,197,49,.1); }
+  .mod .ctl { grid-column: 2; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .mod .ctl select { width: auto; padding: 7px 30px 7px 10px; font-size: 12.5px; border-radius: 10px; }
+  .mod .ctl .btn { padding: 7px 10px; font-size: 12.5px; border-radius: 10px; }
+  @media (max-width: 640px) { .mod .ctl { grid-column: 1 / -1; } .hide-sm { display: none; } }
+
+  .credit { position: fixed; left: 16px; bottom: 14px; z-index: 30; padding: 7px 13px; border-radius: 99px; font-size: 12.5px; color: var(--mute); text-decoration: none; transition: .2s; }
+  .credit b { color: var(--sun); font-weight: 800; }
+  .credit:hover { color: var(--text); transform: translateY(-2px); box-shadow: 0 10px 30px rgba(255,197,49,.25); }
+  @media (max-width: 1000px) { .credit { position: static; display: table; margin: 10px auto 24px; } }
+
+  /* ── вкладки ── */
+  .tabs { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; padding: 5px; background: rgba(5,5,10,.45); border: 1px solid var(--line); border-radius: 16px; margin-bottom: 6px; }
+  .tabs button { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 9px 2px; min-width: 0; white-space: nowrap; letter-spacing: -.01em; border: 0; border-radius: 12px; background: transparent; color: var(--mute); font: 700 10.5px "Manrope", "Segoe UI", system-ui, sans-serif; cursor: pointer; transition: .15s; overflow: hidden; text-overflow: ellipsis; }
+  .tabs button span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+  @media (max-width: 420px) { .tabs { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+  .tabs button svg { width: 22px; height: 22px; }
+  .tabs button:hover { color: var(--text); background: var(--glass2); }
+  .tabs button.on { background: linear-gradient(135deg, var(--sun), var(--sun2)); color: #231700; box-shadow: 0 6px 20px rgba(255,170,30,.3); }
+
+  /* ── дропзона ── */
+  .drop { position: relative; border: 2px dashed rgba(255,255,255,.18); border-radius: 16px; padding: 22px 16px; text-align: center; color: var(--mute); cursor: pointer; transition: .15s; background: rgba(5,5,10,.3); }
+  .drop:hover, .drop.over { border-color: var(--sun); background: rgba(255,197,49,.07); color: var(--text); }
+  .drop svg { width: 34px; height: 34px; color: var(--sun); margin-bottom: 6px; }
+  .drop b { color: var(--text); }
+  .drop .kbd { display: inline-block; padding: 1px 7px; border-radius: 6px; background: rgba(255,255,255,.1); border: 1px solid var(--line); font-size: 12px; color: var(--text); }
+  .drop.has { padding: 12px; text-align: left; display: flex; align-items: center; gap: 12px; border-style: solid; border-color: rgba(255,197,49,.45); }
+  .drop.has .fi { width: 44px; height: 44px; border-radius: 10px; background: rgba(255,197,49,.15); display: grid; place-items: center; flex: none; }
+  .drop.has .fi svg { margin: 0; width: 22px; height: 22px; }
+  .drop.has .fn { flex: 1; min-width: 0; }
+  .drop.has .fn div:first-child { color: var(--text); font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .or { display: flex; align-items: center; gap: 10px; color: var(--dim); font-size: 12px; margin: 12px 0; }
+  .or::before, .or::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+  .detect { display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 12.5px; padding: 4px 10px; border-radius: 99px; background: rgba(61,139,255,.14); color: var(--sky2); border: 1px solid rgba(61,139,255,.3); }
+  .detect.bad { background: rgba(255,90,95,.12); color: #ffb4b6; border-color: rgba(255,90,95,.3); }
+  .sources { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .sources span { font-size: 11.5px; padding: 3px 8px; border-radius: 99px; background: var(--glass2); border: 1px solid var(--line); color: var(--dim); }
+  .vol { display: flex; align-items: center; gap: 10px; }
+  .vol output { width: 42px; text-align: right; font-weight: 700; color: var(--sun); }
+  .counter { text-align: right; font-size: 11.5px; color: var(--dim); margin-top: 4px; }
+  .section-sep { height: 1px; background: var(--line); margin: 18px -22px 4px; }
+  @media (max-width: 640px) { .section-sep { margin: 18px -16px 4px; } .tabs button span { font-size: 11px; } }
+  .section-h { font: 700 12px "Manrope", "Segoe UI", system-ui, sans-serif; text-transform: uppercase; letter-spacing: .1em; color: var(--sun); margin-top: 16px; }
+
+  /* ── передпоказ ── */
+  .screen { position: relative; aspect-ratio: 16 / 9; border-radius: 16px; overflow: hidden; background: #000; border: 1px solid var(--line); }
+  .screen::before { content: ""; position: absolute; inset: 0; background: url(/assets/bg-preview.jpg) center 40% / cover; }
+  .screen { contain: layout paint; }
+  .screen .lbl-live { position: absolute; left: 12px; top: 12px; z-index: 2; font: 800 11px "Manrope", "Segoe UI", system-ui, sans-serif; letter-spacing: .1em; padding: 4px 9px; border-radius: 6px; background: rgba(0,0,0,.55); color: #fff; }
+  .screen .lbl-live::before { content: "●"; color: var(--red); margin-right: 6px; }
+  .screen .empty { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; color: rgba(255,255,255,.7); z-index: 1; padding: 20px; font-weight: 600; }
+  .screen .md-stage { pointer-events: auto; }
+  .screen .md-card { animation: none; }
+  .pv-actions { display: flex; gap: 10px; margin-top: 14px; }
+  .pv-actions .primary { flex: 1; }
+  progress { width: 100%; height: 6px; margin-top: 10px; accent-color: var(--sun); border-radius: 6px; }
+
+  /* ── зараз на екрані ── */
+  .now { display: flex; align-items: center; gap: 14px; }
+  .now .pulse { width: 12px; height: 12px; border-radius: 50%; background: #555; flex: none; }
+  .now.live .pulse { background: var(--green); box-shadow: 0 0 0 0 rgba(52,211,153,.6); animation: pulse 1.6s infinite; }
+  @keyframes pulse { 70% { box-shadow: 0 0 0 12px rgba(52,211,153,0); } 100% { box-shadow: 0 0 0 0 rgba(52,211,153,0); } }
+  .now .what { flex: 1; min-width: 0; }
+  .now .what b { display: block; }
+  .now .what span { display: block; color: var(--mute); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .hist { list-style: none; margin: 0; padding: 0; max-height: 420px; overflow: auto; }
+  .hist li { display: flex; align-items: center; gap: 12px; padding: 10px 4px; border-top: 1px solid var(--line); }
+  .hist li:first-child { border-top: 0; }
+  .hist .ic { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; background: var(--glass2); flex: none; }
+  .hist .ic svg { width: 18px; height: 18px; color: var(--sun); }
+  .hist .t { flex: 1; min-width: 0; }
+  .hist .t div:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+  .hist .t div:last-child { font-size: 12px; color: var(--dim); }
+  .off-banner { padding: 12px 16px; margin-bottom: 18px; border-color: rgba(255,90,95,.4); color: #ffc2c4; }
+</style>
+</head>
+<body>
+<div class="bg"><div class="art"></div></div>
+
+<div class="shell"><div class="container">
+
+  <!-- ═════ Вхід ═════ -->
+  <section id="loginView" hidden>
+    <div class="login-wrap">
+      <div class="glass login">
+        <div class="logo"><span class="flower">🌻</span> Mod Drop</div>
+        <h1>Панель модерів</h1>
+        <p>Покажи стрімеру картинку, відео, музику, текст чи статтю, і воно одразу з'явиться на стрімі.</p>
+        <div class="feat"><span>🖼 картинки</span><span>🎬 відео</span><span>🎵 аудіо</span><span>📝 текст</span><span>📰 статті</span></div>
+        <button class="btn twitch big" id="twitchBtn">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4.3 3 3 6.5v13.6h4.7V23h2.6l2.8-2.9h3.8l5.1-5.1V3H4.3Zm15.9 11-3 3h-4.7l-2.6 2.6V17H5.9V4.8h14.3V14ZM17.4 8h-1.8v5.2h1.8V8Zm-4.9 0h-1.8v5.2h1.8V8Z"/></svg>
+          Увійти через Twitch
+        </button>
+        <div class="alt">
+          <a class="btn" id="localBtn" href="/auth/local" hidden>🏠 Увійти як стрімер (цей ПК)</a>
+          <div id="devBox" class="dim" hidden>Тестовий вхід: <a href="/auth/dev?login=test_mod">як модер</a></div>
+        </div>
+        <div class="err" id="loginErr" hidden></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═════ Сервіс не запущено ═════ -->
+  <section id="lockedView" hidden>
+    <div class="login-wrap">
+      <div class="glass login">
+        <div class="logo"><span class="flower">🌻</span> Mod Drop</div>
+        <h1>Сервіс ще не запущено</h1>
+        <p>Стрімер має відкрити програму на своєму комп'ютері і розблокувати її. Спробуй трохи пізніше.</p>
+        <button class="btn primary big" onclick="location.reload()">Оновити</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═════ Панель ═════ -->
+  <section id="appView" hidden>
+    <header class="glass topbar">
+      <div class="logo"><span class="flower">🌻</span><div>Mod Drop<br><small>панель модерів</small></div></div>
+      <div class="spacer"></div>
+      <a class="btn" id="setupTop" href="/setup" hidden title="Повернутися до налаштувань">⚙️ <span class="hide-sm">Налаштування</span></a>
+      <span class="chip" id="cdChip" hidden>⏱ <span id="cdTxt"></span></span>
+      <span class="chip" id="liveChip"><span class="dot"></span><span id="liveTxt">…</span></span>
+      <div class="user" id="userBox"></div>
+      <button class="btn ghost icon" id="logoutBtn" title="Вийти">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>
+      </button>
+    </header>
+
+    <div class="glass off-banner" id="pauseBanner" hidden></div>
+    <div class="glass off-banner" id="offBanner" hidden>⏸ Стрімер тимчасово вимкнув показ. Надіслати поки не вийде.</div>
+
+    <div class="main">
+      <!-- ── Ліва колонка: що надсилаємо ── -->
+      <div class="col">
+        <div class="glass card">
+          <form class="gsearch" id="gSearch" autocomplete="off">
+            <input class="input" id="gQ" placeholder="🔎 Шукати всюди: картинки, GIF, YouTube, кліпи каналу…">
+            <button class="btn sky" type="submit">Знайти</button>
+          </form>
+          <div class="gres" id="gRes" hidden></div>
+          <nav class="tabs" id="tabs"></nav>
+
+          <!-- Картинка -->
+          <div class="pane" data-pane="image">
+            <div class="drop" data-drop="image"></div>
+            <div class="or">або посилання</div>
+            <input class="input" type="url" data-url="image" placeholder="https://… (jpg, png, gif, webp)">
+            <div class="hint">Можна вставити скрін з буфера: просто натисни <b>Ctrl+V</b> будь-де на сторінці.</div>
+            <div class="search" data-search="image" data-target="image"></div>
+          </div>
+
+          <!-- GIF -->
+          <div class="pane" data-pane="gif" hidden>
+            <div class="search" data-search="gif" data-target="gif"></div>
+            <div class="or">або свій файл / посилання</div>
+            <div class="drop" data-drop="gif"></div>
+            <input class="input" type="url" data-url="gif" placeholder="https://… .gif / .webp" style="margin-top:10px">
+          </div>
+
+          <!-- Відео -->
+          <div class="pane" data-pane="video" hidden>
+            <div class="drop" data-drop="video"></div>
+            <div class="or">або посилання</div>
+            <input class="input" type="url" data-url="video" placeholder="YouTube, Twitch, Vimeo, TikTok, Streamable або .mp4">
+            <div data-detect="video"></div>
+            <div class="search" data-search="video" data-target="video"></div>
+            <div class="sources"><span>YouTube / Shorts</span><span>Twitch-кліпи</span><span>Twitch VOD</span><span>Vimeo</span><span>TikTok</span><span>Streamable</span><span>.mp4 / .webm</span></div>
+            <div class="section-h">Відтворення</div>
+            <div class="grid2">
+              <div><label class="lbl">Почати з (хв:сек)</label><input class="input" data-opt="video.start" placeholder="0:00"></div>
+              <div><label class="lbl">Гучність</label><div class="vol"><input type="range" min="0" max="100" value="100" data-opt="video.volume"><output>100</output></div></div>
+            </div>
+            <div class="row-switch"><div class="t"><b>Без звуку</b><span>Відео піде беззвучно</span></div><label class="switch"><input type="checkbox" data-opt="video.muted"><span></span></label></div>
+          </div>
+
+          <!-- Аудіо -->
+          <div class="pane" data-pane="audio" hidden>
+            <div class="drop" data-drop="audio"></div>
+            <div class="or">або посилання</div>
+            <input class="input" type="url" data-url="audio" placeholder="YouTube (тільки звук) або .mp3 / .ogg / .wav">
+            <div data-detect="audio"></div>
+            <div class="search" data-search="audio" data-target="audio"></div>
+            <div class="grid2">
+              <div><label class="lbl">🎵 Назва треку</label><input class="input" data-opt="audio.title" maxlength="140" placeholder="визначиться автоматично"></div>
+              <div><label class="lbl">Виконавець</label><input class="input" data-opt="audio.artist" maxlength="100" placeholder="необов'язково"></div>
+            </div>
+            <div class="hint">Назва і виконавець підтягуються з тегів MP3 або з YouTube. Можна змінити вручну.</div>
+            <div class="grid2">
+              <div><label class="lbl">Почати з (хв:сек)</label><input class="input" data-opt="audio.start" placeholder="0:00"></div>
+              <div><label class="lbl">Гучність</label><div class="vol"><input type="range" min="0" max="100" value="80" data-opt="audio.volume"><output>80</output></div></div>
+            </div>
+          </div>
+
+          <!-- Текст -->
+          <div class="pane" data-pane="text" hidden>
+            <label class="lbl">Заголовок</label>
+            <input class="input" data-opt="text.title" maxlength="120" placeholder="Напр.: Підказка до боса">
+            <label class="lbl">Текст</label>
+            <textarea class="input" data-opt="text.text" maxlength="2000" rows="7" placeholder="Що треба пояснити стрімеру…"></textarea>
+            <div class="counter"><span data-count="text.text">0</span> / 2000</div>
+          </div>
+
+          <!-- Стаття -->
+          <div class="pane" data-pane="article" hidden>
+            <label class="lbl">Посилання на статтю / сторінку</label>
+            <input class="input" type="url" data-url="article" placeholder="https://…">
+            <div data-detect="article"></div>
+            <label class="lbl">Свій заголовок (інакше візьметься зі сторінки)</label>
+            <input class="input" data-opt="article.title" maxlength="200">
+            <label class="lbl">Свій опис (необов'язково)</label>
+            <textarea class="input" data-opt="article.description" maxlength="400" rows="2"></textarea>
+          </div>
+
+          <!-- Улюблене -->
+          <div class="pane" data-pane="fav" hidden>
+            <div class="hint" style="margin:2px 0 10px">Натисни ⭐ біля будь-чого в «Нещодавніх», щоб зберегти сюди. Тут вибери, що показати, і тисни «Показати на стрімі».</div>
+            <input class="input" id="favFilter" placeholder="🔎 Фільтр за назвою…" style="margin-bottom:10px">
+            <div class="favs" id="favs"></div>
+          </div>
+
+          <div id="designBox">
+          <div class="section-sep"></div>
+          <div class="section-h">Оформлення</div>
+          <label class="lbl">💬 Пояснення для стрімера</label>
+          <textarea class="input" id="note" maxlength="500" rows="2" placeholder="Напр.: ось як пройти цю загадку"></textarea>
+          <div class="design">
+            <div>
+              <label class="lbl">Де показати</label>
+              <div class="posgrid" id="posGrid">
+                <button data-v="tl" title="Лівий верхній кут">↖</button><button data-v="top" title="Згори">↑</button><button data-v="tr" title="Правий верхній кут">↗</button>
+                <button data-v="left" title="Ліворуч">←</button><button data-v="center" title="По центру">●</button><button data-v="right" title="Праворуч">→</button>
+                <button data-v="bl" title="Лівий нижній кут">↙</button><button data-v="bottom" title="Знизу">↓</button><button data-v="br" title="Правий нижній кут">↘</button>
+              </div>
+              <button class="pos-auto on" id="posAuto">Авто</button>
+              <div class="hint" id="posHint"></div>
+            </div>
+            <div>
+              <label class="lbl">Розмір на екрані</label>
+              <div class="seg" id="sizeSeg"><button data-v="s">S</button><button data-v="m" class="on">M</button><button data-v="l">L</button><button data-v="xl">XL</button></div>
+              <label class="lbl">✨ Ефект появи</label>
+              <select class="input" id="fx">
+                <option value="auto">Авто (під позицію)</option><option value="slide">Ковзання з краю</option><option value="pop">Поп з відскоком</option>
+                <option value="flip">3D-фліп</option><option value="zoom">Кіно-зум</option><option value="reveal">Розгортання</option>
+                <option value="glitch">Глітч</option><option value="none">Без ефекту</option>
+              </select>
+              <label class="lbl">Скільки показувати</label>
+              <select class="input" id="duration">
+                <option value="0" id="durZero">Поки не приберуть</option>
+                <option value="5">5 секунд</option><option value="10">10 секунд</option><option value="15">15 секунд</option>
+                <option value="30">30 секунд</option><option value="60">1 хвилина</option><option value="120">2 хвилини</option><option value="300">5 хвилин</option>
+              </select>
+            </div>
+          </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Права колонка: передпоказ + стан ── -->
+      <div class="col">
+        <div class="glass card">
+          <div class="card-title">👁 Передпоказ <span class="sub">так це виглядатиме на стрімі</span><button class="btn icon ghost" id="replayBtn" title="Програти ефект ще раз" style="margin-left:6px">▶</button></div>
+          <div class="screen no-anim" id="screen">
+            <span class="lbl-live">LIVE</span>
+            <div class="empty" id="pvEmpty">Додай щось ліворуч, і тут з'явиться передпоказ</div>
+            <div class="md-stage" id="pvStage"></div>
+          </div>
+          <div class="pv-actions">
+            <button class="btn ghost" id="resetBtn" title="Очистити форму">Очистити</button>
+            <button class="btn primary big" id="sendBtn" disabled>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+              <span id="sendTxt">Показати на стрімі</span>
+            </button>
+          </div>
+          <progress id="prog" value="0" max="100" hidden></progress>
+          <div class="hint" style="text-align:center" id="sendHint">Ctrl + Enter — швидко надіслати</div>
+        </div>
+
+        <div class="glass card now" id="nowBox">
+          <span class="pulse"></span>
+          <div class="what"><b id="nowTitle">На екрані нічого</b><span id="nowSub">Тут буде видно, що зараз показується</span></div>
+          <button class="btn danger" id="hideBtn" disabled>✕ Прибрати</button>
+        </div>
+
+        <div class="glass card">
+          <div class="card-title">🕘 Нещодавні <span class="sub">↻ — показати ще раз</span></div>
+          <ul class="hist" id="hist"></ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═════ Керування (тільки стрімер) ═════ -->
+    <div class="manage" id="manage" hidden>
+      <div class="glass card" id="ownerBox">
+        <div class="card-title">🎛 Керування стрімом</div>
+        <div class="row-switch"><div class="t"><b>Приймати від модерів</b><span>Вимкни, якщо зараз не до того</span></div><label class="switch"><input type="checkbox" id="enabled"><span></span></label></div>
+        <div class="row-switch"><div class="t"><b>Кулдаун за замовчуванням</b><span>Пауза між надсиланнями для кожного модера</span></div>
+          <select class="input" id="defCd" style="width:auto"></select></div>
+        <div class="row-switch"><div class="t"><b>🚫 Без російського контенту в пошуку</b><span>Ховає результати російською та з російських сайтів</span></div><label class="switch"><input type="checkbox" id="filterRu"><span></span></label></div>
+        <div class="section-h" style="margin-top:6px">🔔 Звук сповіщення</div>
+        <div class="grid2">
+          <div><label class="lbl">Де грати</label>
+            <select class="input" id="nWhere">
+              <option value="overlay">В оверлеї OBS (чують і глядачі)</option>
+              <option value="panel">Тільки в цій панелі (чую лише я)</option>
+              <option value="both">І там, і там</option>
+              <option value="off">Вимкнено</option>
+            </select></div>
+          <div><label class="lbl">Звук</label>
+            <div class="copyline"><select class="input" id="nSound">
+              <option value="chime">Дзвіночок</option><option value="ping">Пінг</option><option value="pop">Поп</option>
+              <option value="harp">Арфа</option><option value="bell">Дзвін</option><option value="alert">Увага!</option>
+            </select><button class="btn" id="nTest" type="button" title="Прослухати">▶</button></div></div>
+        </div>
+        <label class="lbl">Гучність</label>
+        <div class="vol"><input type="range" min="0" max="100" value="70" id="nVol"><output id="nVolOut">70</output></div>
+        <div class="hint" id="nHint">Звучить щоразу, коли модер щось показує. Так ти точно помітиш.</div>
+        <label class="lbl">Посилання для OBS → Browser Source (1920×1080)</label>
+        <div class="copyline"><input class="input" id="obsUrl" readonly><button class="btn primary" data-copy="obsUrl">Копіювати</button></div>
+        <div class="hint" id="overlayState"></div>
+        <label class="lbl">Посилання для модерів</label>
+        <div class="copyline"><input class="input" id="modUrl" readonly><button class="btn" data-copy="modUrl">Копіювати</button></div>
+        <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+          <a class="btn" href="/setup" id="setupLink" hidden>⚙️ Налаштування</a>
+          <button class="btn ghost" id="clearHist">Очистити історію</button>
+        </div>
+      </div>
+
+      <div class="glass card" id="modsBox">
+        <div class="card-title">👥 Модератори <span class="sub" id="modsCount"></span></div>
+        <div class="mods-tools">
+          <form id="addMod" class="copyline"><input class="input" id="addLogin" placeholder="Додати за логіном Twitch, напр. friend_123"><button class="btn sky" type="submit">+ Дати доступ</button></form>
+          <a class="btn" id="syncBtn" href="/auth/login?sync=1" title="Увійти через Twitch і підтягнути список модерів каналу">🔄 Підтягнути з Twitch</a>
+        </div>
+        <div class="mods" id="mods"></div>
+      </div>
+    </div>
+  </section>
+</div></div>
+
+<a class="credit glass" href="https://twitch.tv/mi_miracle" target="_blank" rel="noopener">🌻 створено <b>Mi_Miracle</b></a>
+<div class="glass toast" id="toast"></div>
+
+<script src="/assets/render.js"></script>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  const ICONS = {
+    image: '<path d="M21 15l-5-5L5 21"/><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/>',
+    video: '<path d="m22 8-6 4 6 4V8Z"/><rect x="2" y="6" width="14" height="12" rx="2"/>',
+    audio: '<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
+    text: '<path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/>',
+    article: '<path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8M15 18h-5M10 6h8v4h-8Z"/>',
+    gif: '<rect x="2" y="4" width="20" height="16" rx="3"/><path d="M8.5 10.5H7a1.5 1.5 0 0 0-1.5 1.5v0A1.5 1.5 0 0 0 7 13.5h1.5V12M12 10v4M15.5 14v-4h3M15.5 12h2"/>',
+    fav: '<path d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z"/>',
+    upload: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/>',
+  };
+  const svg = n => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[n]}</svg>`;
+  const TABS = [['image', 'Картинка'], ['gif', 'GIF'], ['video', 'Відео'], ['audio', 'Аудіо'], ['text', 'Текст'], ['article', 'Стаття'], ['fav', 'Улюблене']];
+  const ACCEPT = {
+    image: 'image/png,image/jpeg,image/gif,image/webp,image/avif',
+    gif: 'image/gif,image/webp',
+    video: 'video/mp4,video/webm,video/quicktime',
+    audio: 'audio/mpeg,audio/mp3,audio/ogg,audio/wav,audio/x-wav,audio/mp4,audio/x-m4a,audio/aac,audio/webm,audio/flac',
+  };
+  const DROP_TXT = { image: 'картинку', gif: 'гіфку', video: 'відео', audio: 'аудіофайл' };
+
+  let me = null, cfg = null, type = 'image', size = 'm', pos = 'auto', st = null, limits = null, cdUntil = 0;
+  const files = { image: null, gif: null, video: null, audio: null };
+  let favSel = null, lastShownKey = undefined;
+  const blobUrls = {};
+  const resolved = {}; // key → {embed|meta|error}
+  const pending = new Set();
+
+  function toast(msg, err) {
+    const t = $('toast'); t.textContent = msg; t.className = 'glass toast show' + (err ? ' err' : '');
+    clearTimeout(t._h); t._h = setTimeout(() => t.className = 'glass toast', 2800);
+  }
+  async function api(url, opts = {}) {
+    if (opts.json) { opts.method = opts.method || 'POST'; opts.headers = { 'Content-Type': 'application/json' }; opts.body = JSON.stringify(opts.json); }
+    const r = await fetch(url, opts);
+    const j = await r.json().catch(() => ({}));
+    if (r.status === 401) { location.reload(); throw new Error('auth'); }
+    if (!r.ok) throw new Error(j.error || 'Помилка');
+    return j;
+  }
+  const parseTime = v => {
+    v = String(v || '').trim(); if (!v) return 0;
+    if (/^\d+$/.test(v)) return +v;
+    if (/^\d+(:\d{1,2}){1,2}$/.test(v)) return v.split(':').reduce((a, n) => a * 60 + +n, 0);
+    return 0;
+  };
+
+  // ═════ старт ═════
+  (async () => {
+    cfg = await (await fetch('/api/me')).json();
+    if (!cfg.ready) { $('lockedView').hidden = false; return; }
+    me = cfg.user;
+    const qp = new URLSearchParams(location.search);
+    const err = qp.get('err'), msg = qp.get('msg');
+    if (err || msg) history.replaceState(null, '', '/');
+    if (msg && me) setTimeout(() => toast(msg), 400);
+    if (!me) return showLogin(err);
+    showApp();
+  })();
+
+  function showLogin(err) {
+    $('loginView').hidden = false;
+    $('twitchBtn').onclick = () => location.href = '/auth/login';
+    if (!cfg.twitchReady) { $('twitchBtn').disabled = true; err = err || 'Twitch-вхід ще не налаштовано. Стрімер має заповнити ключі на сторінці налаштувань.'; }
+    if (cfg.isLocal) $('localBtn').hidden = false;
+    if (cfg.devLogin) $('devBox').hidden = false;
+    if (err) { $('loginErr').hidden = false; $('loginErr').textContent = err; }
+  }
+
+  function showApp() {
+    $('appView').hidden = false;
+    // користувач
+    const ub = $('userBox');
+    const ava = me.avatar ? Object.assign(document.createElement('img'), { src: me.avatar }) : Object.assign(document.createElement('div'), { className: 'ava', textContent: (me.name || '?')[0].toUpperCase() });
+    const info = document.createElement('div');
+    info.innerHTML = '<div class="nm"></div><div class="rl"></div>';
+    info.querySelector('.nm').textContent = me.name;
+    info.querySelector('.rl').textContent = me.role === 'broadcaster' ? 'стрімер' : 'модератор';
+    ub.append(ava, info);
+    $('logoutBtn').onclick = async () => { await fetch('/auth/logout', { method: 'POST' }); location.href = '/'; };
+
+    if (me.role === 'broadcaster') {
+      $('manage').hidden = false;
+      $('obsUrl').value = cfg.urls.overlayLocal;
+      $('modUrl').value = cfg.urls.panel;
+      if (cfg.isLocal) { $('setupLink').hidden = false; $('setupTop').hidden = false; }
+      if (cfg.updateAvailable) { $('setupTop').classList.add('primary'); $('setupTop').innerHTML = '⬆️ <span class="hide-sm">Є оновлення</span>'; $('setupTop').title = 'Доступна нова версія: відкрий налаштування'; }
+      if (!cfg.twitchReady) $('syncBtn').hidden = true;
+      initMods();
+      initNotify();
+      $('enabled').onchange = e => api('/api/toggle', { json: { enabled: e.target.checked } }).catch(er => toast(er.message, true));
+      $('clearHist').onclick = () => api('/api/history/clear', { method: 'POST' }).catch(er => toast(er.message, true));
+    }
+    $$('[data-copy]').forEach(b => b.onclick = () => copy($(b.dataset.copy).value));
+
+    // вкладки
+    $('tabs').innerHTML = TABS.map(([k, n]) => `<button data-t="${k}" title="${n}">${svg(k)}<span>${n}</span></button>`).join('');
+    $('tabs').onclick = e => { const b = e.target.closest('button'); if (b) setType(b.dataset.t); };
+    $$('[data-drop]').forEach(initDrop);
+    $$('[data-url]').forEach(i => i.addEventListener('input', () => { const t = i.dataset.url; if (i.value.trim() && files[t]) setFile(t, null, true); schedule(); }));
+    $$('[data-opt], #note, #duration').forEach(i => i.addEventListener('input', schedule));
+    $('fx').addEventListener('change', replay);
+    $('replayBtn').onclick = replay;
+    $('posGrid').onclick = e => { const b = e.target.closest('button'); if (b) setPos(b.dataset.v); };
+    $('posAuto').onclick = () => setPos('auto');
+    $('sizeSeg').addEventListener('click', () => setTimeout(replay));
+    if (cfg.limits) setLimits(cfg.limits);
+    $$('[data-search]').forEach(initSearch);
+    initGlobalSearch();
+    $('favFilter').addEventListener('input', renderFavs);
+    // браузер дозволяє звук лише після першого кліку
+    document.addEventListener('pointerdown', () => MDRender.unlockAudio(), { once: true });
+    setInterval(tickCooldown, 500);
+    $$('input[type=range]').forEach(r => { const o = r.nextElementSibling; r.addEventListener('input', () => o.textContent = r.value); });
+    $('sizeSeg').onclick = e => { const b = e.target.closest('button'); if (!b) return; size = b.dataset.v; $$('#sizeSeg button').forEach(x => x.classList.toggle('on', x === b)); schedule(); };
+    const cnt = $$('[data-count]')[0]; const ta = document.querySelector('[data-opt="text.text"]');
+    ta.addEventListener('input', () => cnt.textContent = ta.value.length);
+
+    $('duration').value = String(cfg.defaultDuration);
+    if (!$('duration').value) $('duration').value = '15';
+    $('sendBtn').onclick = send;
+    $('resetBtn').onclick = () => resetForm(type);
+    $('hideBtn').onclick = () => api('/api/hide', { method: 'POST' }).catch(e => toast(e.message, true));
+    document.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) send(); });
+    document.addEventListener('paste', e => {
+      const f = [...(e.clipboardData?.files || [])][0];
+      if (f) { e.preventDefault(); return pickAny(f); }
+      const el = document.activeElement;
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) return;
+      const t = (e.clipboardData?.getData('text') || '').trim();
+      if (/^https?:\/\/\S+$/.test(t)) { e.preventDefault(); dropUrl(t); }
+    });
+    let dh = null, dc = 0;
+    document.addEventListener('dragenter', () => { if (++dc === 1 && !dh) { dh = document.createElement('div'); dh.className = 'drop-hint'; dh.textContent = 'Відпусти, щоб додати 🌻'; document.body.appendChild(dh); } });
+    document.addEventListener('dragleave', () => { if (--dc <= 0) { dc = 0; dh && dh.remove(); dh = null; } });
+    document.addEventListener('dragover', e => e.preventDefault());
+    document.addEventListener('drop', e => {
+      e.preventDefault(); dc = 0; dh && dh.remove(); dh = null;
+      const f = e.dataTransfer.files[0];
+      if (f) return pickAny(f);
+      const u = urlFromDrop(e.dataTransfer);
+      if (u) dropUrl(u);
+    });
+
+    new ResizeObserver(fitPreview).observe($('screen'));
+    setType('image');
+    listen();
+  }
+
+  function copy(v) { navigator.clipboard.writeText(v).then(() => toast('📋 Скопійовано'), () => toast('Не вдалося скопіювати', true)); }
+
+  // ═════ живий стан ═════
+  function listen() {
+    const es = new EventSource('/api/events');
+    es.addEventListener('state', e => render(JSON.parse(e.data)));
+    es.addEventListener('me', e => setLimits(JSON.parse(e.data)));
+    es.addEventListener('mods', e => renderMods(JSON.parse(e.data)));
+    es.addEventListener('kicked', () => location.href = '/?err=' + encodeURIComponent('Стрімер закрив тобі доступ'));
+    es.onerror = () => { es.close(); setTimeout(listen, 3000); };
+  }
+  function itemLabel(i) {
+    if (i.type === 'text') return (i.title ? i.title + ' — ' : '') + i.text;
+    if (i.type === 'audio') return '🎵 ' + (i.artist ? i.artist + ' — ' : '') + i.title;
+    if (i.type === 'article') return i.title;
+    if (i.embed) return i.embed.label || i.embed.kind;
+    return i.local ? ({ image: 'Картинка (файл)', gif: 'GIF (файл)', video: 'Відео (файл)' }[i.type]) : i.src;
+  }
+  function render(s) {
+    st = s;
+    renderFavs();
+    // звук сповіщення в панелі стрімера
+    const key = s.current ? s.current.id + ':' + s.current.shownAt : null;
+    if (lastShownKey !== undefined && key && key !== lastShownKey && me.role === 'broadcaster' && s.notify && (s.notify.where === 'panel' || s.notify.where === 'both'))
+      MDRender.chime(s.notify.sound, s.notify.volume);
+    lastShownKey = key;
+    if (me.role === 'broadcaster' && s.notify && !document.activeElement?.closest?.('#ownerBox')) {
+      $('filterRu').checked = s.filterRu !== false;
+      $('nWhere').value = s.notify.where; $('nSound').value = s.notify.sound; $('nVol').value = s.notify.volume; $('nVolOut').textContent = s.notify.volume;
+    }
+    const live = !!s.current;
+    $('nowBox').classList.toggle('live', live);
+    $('nowTitle').textContent = live ? `${MDRender.TAGS[s.current.type]} від ${s.current.by.name}` : 'На екрані нічого';
+    $('nowSub').textContent = live ? itemLabel(s.current) : 'Тут буде видно, що зараз показується';
+    $('hideBtn').disabled = !live;
+    const chip = $('liveChip');
+    chip.className = 'chip ' + (!s.enabled ? 'err' : live ? 'ok' : s.overlays ? 'ok' : 'warn');
+    $('liveTxt').textContent = !s.enabled ? 'Показ вимкнено' : live ? 'Зараз на екрані' : s.overlays ? 'Оверлей онлайн' : 'Оверлей офлайн';
+    $('offBanner').hidden = s.enabled || me.role === 'broadcaster';
+    updateSend();
+    if (me.role === 'broadcaster') {
+      $('enabled').checked = s.enabled;
+      $('overlayState').textContent = s.overlays ? `✅ Оверлей відкритий в OBS (${s.overlays})` : '⚠️ Оверлей зараз не відкритий в OBS';
+    }
+    const h = $('hist'); h.innerHTML = '';
+    if (!s.history.length) { h.innerHTML = '<li class="dim">Поки порожньо</li>'; return; }
+    for (const i of s.history) {
+      const li = document.createElement('li');
+      const saved = s.favorites.some(f => f.id === i.id);
+      li.innerHTML = `<div class="ic">${svg(i.type === 'gif' ? 'gif' : i.type)}</div><div class="t"><div></div><div></div></div><button class="btn icon ghost star${saved ? ' on' : ''}" title="${saved ? 'Вже в улюбленому' : 'Зберегти в улюблене'}">${saved ? '★' : '☆'}</button><button class="btn icon re" title="Показати ще раз">↻</button>`;
+      li.querySelector('.t div').textContent = itemLabel(i);
+      li.querySelector('.t div:last-child').textContent = `${i.by.name} · ${new Date(i.createdAt).toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' })}`;
+      li.querySelector('.re').onclick = () => api('/api/reshow/' + i.id, { method: 'POST' }).then(() => toast('↻ Показано знову')).catch(e => toast(e.message, true));
+      li.querySelector('.star').onclick = () => saved ? setType('fav') : api('/api/favorites', { json: { id: i.id } }).then(() => toast('⭐ Додано в улюблене')).catch(e => toast(e.message, true));
+      h.appendChild(li);
+    }
+  }
+
+  // ═════ вкладки й форма ═════
+  function setType(t) {
+    type = t;
+    if ($('posGrid')) setTimeout(() => setPos(pos));
+    $$('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
+    $$('.pane').forEach(p => p.hidden = p.dataset.pane !== t);
+    $('designBox').hidden = t === 'fav';
+    if (t === 'gif') { const b = document.querySelector('[data-search="gif"]'); if (b && !b._loaded) { b._loaded = true; b._run(''); } }
+    const media = t === 'video' || t === 'audio';
+    $('durZero').textContent = media ? 'До кінця ролика' : 'Поки не приберуть';
+    if (media && !$('duration')._touched) $('duration').value = '0';
+    if (!media && $('duration').value === '0' && !$('duration')._touched) $('duration').value = String(cfg.defaultDuration);
+    schedule(true);
+  }
+  $('duration') && $('duration').addEventListener('change', e => e.target._touched = true);
+
+  function initDrop(d) {
+    const t = d.dataset.drop;
+    const inp = Object.assign(document.createElement('input'), { type: 'file', accept: ACCEPT[t], hidden: true });
+    inp.onchange = () => { if (inp.files[0]) setFile(t, inp.files[0]); inp.value = ''; };
+    d.after(inp);
+    d._input = inp;
+    d.onclick = e => { if (e.target.closest('[data-clear]')) return setFile(t, null); inp.click(); };
+    d.ondragover = e => { e.preventDefault(); d.classList.add('over'); };
+    d.ondragleave = () => d.classList.remove('over');
+    d.ondrop = e => {
+      e.preventDefault(); e.stopPropagation(); d.classList.remove('over');
+      document.querySelector('.drop-hint')?.remove();
+      const f = e.dataTransfer.files[0]; if (f) return pickAny(f);
+      const u = urlFromDrop(e.dataTransfer); if (u) dropUrl(u);
+    };
+    drawDrop(t);
+  }
+  function drawDrop(t) {
+    const d = document.querySelector(`[data-drop="${t}"]`); const f = files[t];
+    d.classList.toggle('has', !!f);
+    if (!f) {
+      d.innerHTML = `${svg('upload')}<div><b>Перетягни ${DROP_TXT[t]}</b> або натисни, щоб вибрати</div><div class="dim" style="margin-top:4px">або <span class="kbd">Ctrl</span>+<span class="kbd">V</span> · до ${cfg.maxUploadMb} МБ</div>`;
+    } else {
+      d.innerHTML = `<div class="fi">${svg(t)}</div><div class="fn"><div></div><div class="dim"></div></div><button class="btn icon ghost" data-clear title="Прибрати">✕</button>`;
+      d.querySelector('.fn div').textContent = f.name || 'вставлено з буфера';
+      d.querySelector('.fn .dim').textContent = (f.size / 1048576).toFixed(1) + ' МБ';
+    }
+  }
+  function pickAny(f) {
+    const t = f.type === 'image/gif' ? 'gif' : f.type.startsWith('image/') ? 'image' : f.type.startsWith('video/') ? 'video' : f.type.startsWith('audio/') ? 'audio' : null;
+    if (!t) return toast('Підтримуються картинки, відео та аудіо', true);
+    setType(t); setFile(t, f);
+  }
+  function setFile(t, f, silent) {
+    if (f && f.size > cfg.maxUploadMb * 1048576) return toast(`Файл завеликий (макс. ${cfg.maxUploadMb} МБ)`, true);
+    if (blobUrls[t]) { URL.revokeObjectURL(blobUrls[t]); blobUrls[t] = null; }
+    files[t] = f || null;
+    if (f) { blobUrls[t] = URL.createObjectURL(f); document.querySelector(`[data-url="${t}"]`).value = ''; }
+    if (f && t === 'audio') readTags(f).then(tg => { if (files.audio === f) autoFill(tg.title, tg.artist, f); });
+    drawDrop(t);
+    if (!silent) schedule();
+  }
+  const opt = k => { const e = document.querySelector(`[data-opt="${k}"]`); return e.type === 'checkbox' ? e.checked : e.value; };
+  const urlOf = t => (document.querySelector(`[data-url="${t}"]`) || {}).value?.trim() || '';
+
+  function resetForm(t) {
+    if (files[t]) setFile(t, null, true);
+    $$(`[data-pane="${t}"] input:not([type=range]):not([type=checkbox]), [data-pane="${t}"] textarea`).forEach(i => i.value = '');
+    $('note').value = '';
+    $$('[data-count]').forEach(c => c.textContent = '0');
+    schedule(true);
+  }
+
+  // ═════ розпізнавання посилань (на сервері) ═════
+  function resolveUrl(t, url) {
+    const key = t + '|' + url;
+    if (resolved[key] || pending.has(key)) return resolved[key];
+    pending.add(key);
+    api('/api/resolve', { json: { type: t, url } })
+      .then(r => resolved[key] = r).catch(e => resolved[key] = { error: e.message })
+      .finally(() => { pending.delete(key); schedule(true); });
+    return null;
+  }
+  function setDetect(t, html, bad) {
+    const box = document.querySelector(`[data-detect="${t}"]`); if (!box) return;
+    box.innerHTML = html ? `<span class="detect${bad ? ' bad' : ''}">${html}</span>` : '';
+  }
+
+  // ═════ передпоказ ═════
+  let pvTimer = null, pvKey = '', pvHandle = null;
+  function schedule(now) { clearTimeout(pvTimer); pvTimer = setTimeout(updatePreview, now ? 0 : 350); }
+
+  function draftItem() {
+    const base = { id: 'preview', type, by: { name: me.name, login: me.login, avatar: me.avatar }, note: $('note').value.trim(), size, pos, fx: $('fx').value, duration: +$('duration').value };
+    const t = type;
+    if (t === 'image' || t === 'gif') {
+      if (files[t]) return { ...base, src: blobUrls[t] };
+      const u = urlOf(t); if (!/^https?:\/\//i.test(u)) return null;
+      return { ...base, src: u };
+    }
+    if (t === 'fav') {
+      const f = st && st.favorites.find(x => x.fid === favSel);
+      if (!f) return null;
+      return { ...f, id: 'preview', by: base.by };
+    }
+    if (t === 'video' || t === 'audio') {
+      const o = { start: parseTime(opt(t + '.start')), volume: +opt(t + '.volume'), muted: t === 'video' ? opt('video.muted') : false };
+      const extra = t === 'audio' ? { title: opt('audio.title').trim() || (files.audio ? files.audio.name.replace(/\.[^.]+$/, '') : ''), artist: opt('audio.artist').trim() } : {};
+      if (files[t]) { setDetect(t, ''); return { ...base, ...o, ...extra, src: blobUrls[t] }; }
+      const u = urlOf(t);
+      if (!u) { setDetect(t, ''); return null; }
+      if (!/^https?:\/\//i.test(u)) { setDetect(t, 'Посилання має починатися з https://', true); return null; }
+      const r = resolveUrl(t, u);
+      if (!r) { setDetect(t, '⏳ Розпізнаю…'); return 'loading'; }
+      if (r.error) { setDetect(t, r.error, true); return null; }
+      if (r.embed) {
+        const inf = r.info || {};
+        setDetect(t, '✓ ' + r.embed.label + (inf.title ? ' · ' + inf.title : '') + (inf.duration ? ` · ${Math.round(inf.duration)} с` : '') + (t === 'video' && !r.embed.endEvent && !inf.duration ? ' · тривалість ставиться вручну (за замовч. 1 хв)' : ''));
+        if (t === 'audio' && inf.title) autoFill(inf.title, inf.author, u);
+        const embed = { ...r.embed }; if (o.start) embed.start = o.start;
+        return { ...base, ...o, ...extra, title: extra.title || (t === 'audio' ? inf.title || 'YouTube' : undefined), artist: extra.artist || (t === 'audio' ? inf.author || '' : undefined), embed };
+      }
+      setDetect(t, '✓ Пряме посилання на файл');
+      return { ...base, ...o, ...extra, title: extra.title || decodeURIComponent(u.split('/').pop().split('?')[0] || 'Аудіо'), src: u };
+    }
+    if (t === 'text') {
+      const text = opt('text.text').trim(); if (!text) return null;
+      return { ...base, title: opt('text.title').trim(), text };
+    }
+    if (t === 'article') {
+      const u = urlOf('article');
+      if (!u) { setDetect('article', ''); return null; }
+      if (!/^https?:\/\//i.test(u)) { setDetect('article', 'Посилання має починатися з https://', true); return null; }
+      const r = resolveUrl('article', u);
+      if (!r) { setDetect('article', '⏳ Завантажую прев\'ю сторінки…'); return 'loading'; }
+      const m = r.meta || {};
+      setDetect('article', r.warn ? r.warn : '✓ Прев\'ю отримано', !!r.warn);
+      let host = u; try { host = new URL(u).hostname.replace(/^www\./, ''); } catch {}
+      return { ...base, url: u, title: opt('article.title').trim() || m.title || host, description: opt('article.description').trim() || m.description || '', image: m.image || '', site: m.site || host };
+    }
+    return null;
+  }
+
+  function updatePreview() {
+    const item = draftItem();
+    const empty = $('pvEmpty');
+    if (!item || item === 'loading') {
+      if (pvHandle) { pvHandle.destroy(); pvHandle = null; } pvKey = '';
+      empty.hidden = false;
+      empty.textContent = item === 'loading' ? '⏳ Готую передпоказ…' : 'Додай щось ліворуч, і тут з\'явиться передпоказ';
+      $('pvStage').innerHTML = '';
+      updateSend(false); return;
+    }
+    empty.hidden = true;
+    const key = JSON.stringify(item);
+    if (key !== pvKey) {
+      pvKey = key;
+      pvHandle = MDRender.render(item, $('pvStage'), { preview: true, reuse: pvHandle });
+      fitPreview();
+    }
+    updateSend(true);
+  }
+  let canSend = false;
+  function updateSend(ok) {
+    if (ok !== undefined) canSend = ok;
+    const mod = me.role !== 'broadcaster';
+    const paused = mod && limits && limits.pausedUntil > Date.now();
+    const cd = mod && cdUntil > Date.now();
+    $('sendBtn').disabled = !canSend || (st && !st.enabled && mod) || paused || cd;
+    $('sendTxt').textContent = cd ? `⏱ Зачекай ${Math.ceil((cdUntil - Date.now()) / 1000)} с` : paused ? '⏸ Призупинено' : 'Показати на стрімі';
+  }
+  function fitPreview() {
+    const s = $('screen').clientWidth / 1920;
+    $('pvStage').style.transform = `scale(${s})`;
+  }
+
+  // ═════ пошук ═════
+  // які джерела шукає кожна вкладка
+  const SRC = {
+    image: [['image', 'Картинки (Bing + DuckDuckGo)']],
+    gif: [['gif', 'GIF']],
+    video: [['youtube', '▶ YouTube'], ['clips', '✂️ Кліпи каналу']],
+    audio: [['youtube', '▶ YouTube']],
+  };
+  const PH = { image: '🔎 Пошук картинок…', gif: '🔎 Пошук GIF… (порожньо — популярні)', youtube: '🔎 Пошук на YouTube…', clips: '🔎 Пошук у кліпах каналу… (порожньо — свіжі)' };
+  const KIND_TARGET = { image: 'image', gif: 'gif', youtube: 'video', clips: 'video' };
+  const wide = k => k === 'youtube' || k === 'clips';
+
+  function tile(it, kind, onPick) {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'r'; b.title = it.title || '';
+    const img = document.createElement('img'); img.loading = 'lazy'; img.referrerPolicy = 'no-referrer'; img.decoding = 'async';
+    img.src = it.thumb;
+    // анімоване прев'ю GIF; якщо сайт не віддає — показуємо статичну мініатюру
+    img.onerror = () => { if (it.still && img.src !== it.still) img.src = it.still; else b.remove(); };
+    b.appendChild(img);
+    if (wide(kind)) {
+      if (it.duration) { const d = document.createElement('span'); d.className = 'd'; d.textContent = it.duration; b.appendChild(d); }
+      const tt = document.createElement('div'); tt.className = 'tt'; tt.textContent = it.title; b.appendChild(tt);
+      const ch = document.createElement('div'); ch.className = 'ch'; ch.textContent = it.channel || ''; b.appendChild(ch);
+    } else if (kind === 'gif') { const d = document.createElement('span'); d.className = 'd'; d.textContent = 'GIF'; b.appendChild(d); }
+    b.onclick = () => onPick(b);
+    return b;
+  }
+  function pickResult(it, kind) {
+    const target = KIND_TARGET[kind];
+    if (type !== target) setType(target);
+    const u = document.querySelector(`[data-url="${target}"]`);
+    if (files[target]) setFile(target, null, true);
+    u.value = it.url; u.dispatchEvent(new Event('input'));
+    toast('✓ Вибрано — дивись передпоказ');
+  }
+  const fetchSearch = (kind, q, p = 0) => api(`/api/search?kind=${kind}&q=${encodeURIComponent(q)}&p=${p}`);
+  const googleUrl = (q, kind) => 'https://www.google.com/search?tbm=isch&hl=uk&q=' + encodeURIComponent(q || '') + (kind === 'gif' ? '&tbs=itp:animated' : '');
+
+  function initSearch(box) {
+    const target = box.dataset.target, srcs = SRC[box.dataset.search];
+    let kind = srcs[0][0], q = '', page = 0, seq = 0;
+    box.innerHTML = `<form><input class="input"><button class="btn sky" type="submit">Знайти</button></form>
+      <div class="src-seg"></div><div class="sres"></div><button class="btn more" type="button" hidden>Показати ще</button><div class="src"></div>`;
+    const inp = box.querySelector('input'), res = box.querySelector('.sres'), src = box.querySelector('.src'), more = box.querySelector('.more'), seg = box.querySelector('.src-seg');
+    const setKind = k => {
+      kind = k; inp.placeholder = PH[k];
+      res.className = 'sres' + (wide(k) ? ' yt' : '');
+      seg.querySelectorAll('.chipb').forEach(c => c.classList.toggle('on', c.dataset.k === k));
+    };
+    if (srcs.length > 1) srcs.forEach(([k, n]) => { const c = document.createElement('button'); c.type = 'button'; c.className = 'chipb'; c.dataset.k = k; c.textContent = n; c.onclick = () => { setKind(k); if (q || k === 'clips') run(q); }; seg.appendChild(c); });
+    if (kind === 'clips' || target === 'video') { /* кліпи доступні лише з Twitch-ключами */ if (!cfg.twitchReady) seg.querySelector('[data-k="clips"]')?.remove(); }
+    if (target === 'image' || target === 'gif') {
+      const g = document.createElement('a'); g.className = 'google'; g.target = '_blank'; g.rel = 'noopener';
+      g.innerHTML = '<b style="color:#4285f4">G</b><b style="color:#ea4335">o</b><b style="color:#fbbc05">o</b><b style="color:#4285f4">g</b><b style="color:#34a853">l</b><b style="color:#ea4335">e</b> ↗';
+      g.title = 'Відкрити пошук у Google. Знайдену картинку перетягни сюди або скопіюй посилання на зображення';
+      g.onclick = () => { g.href = googleUrl(inp.value.trim(), target); };
+      seg.appendChild(g);
+    }
+    if (!seg.children.length) seg.remove();
+    setKind(kind);
+
+    async function run(query, append) {
+      const my = ++seq;
+      q = query; if (!append) page = 0;
+      if (!append) res.innerHTML = '<div class="msg">⏳ Шукаю…</div>';
+      more.hidden = true; src.textContent = '';
+      try {
+        const r = await fetchSearch(kind, q, page);
+        if (my !== seq) return;
+        if (!append) res.innerHTML = '';
+        if (!r.results.length && !append) { res.innerHTML = `<div class="msg">Нічого не знайдено 🤷${r.hidden ? ` (приховано російських: ${r.hidden})` : ''}</div>`; return; }
+        for (const it of r.results) res.appendChild(tile(it, kind, b => { $$('.r.sel', res).forEach(x => x.classList.remove('sel')); b.classList.add('sel'); pickResult(it, kind); }));
+        src.textContent = 'Джерела: ' + r.source + (r.failed && r.failed.length ? ` · не відповіли: ${r.failed.join(', ')}` : '') + (r.hidden ? ` · 🚫 приховано російських: ${r.hidden}` : '');
+        more.hidden = !r.more;
+      } catch (e) { if (my === seq) { if (!append) res.innerHTML = ''; res.insertAdjacentHTML('beforeend', `<div class="msg">⚠️ ${esc(e.message)}</div>`); } }
+    }
+    more.onclick = () => { page++; more.disabled = true; run(q, true).finally(() => more.disabled = false); };
+    box.querySelector('form').onsubmit = e => { e.preventDefault(); box._loaded = true; run(inp.value.trim()); };
+    box._run = qq => run(qq);
+    box._setQuery = (qq, k) => { inp.value = qq; if (k && srcs.some(x => x[0] === k)) setKind(k); box._loaded = true; run(qq); };
+  }
+
+  // ── пошук усюди одразу ──
+  function initGlobalSearch() {
+    const kinds = [['image', 'Картинки', 'image'], ['gif', 'GIF', 'gif'], ['youtube', 'YouTube', 'video']];
+    if (cfg.twitchReady) kinds.push(['clips', 'Кліпи каналу', 'video']);
+    $('gSearch').onsubmit = async e => {
+      e.preventDefault();
+      const q = $('gQ').value.trim(); if (!q) return;
+      const box = $('gRes'); box.hidden = false;
+      box.innerHTML = '<button class="btn icon ghost close" type="button" title="Закрити">✕</button>';
+      box.querySelector('.close').onclick = () => box.hidden = true;
+      for (const [k, name, tab] of kinds) {
+        const sec = document.createElement('div');
+        sec.innerHTML = `<div class="gh"><b></b><span class="dim">⏳</span><button class="btn ghost" type="button">Більше →</button></div><div class="row${wide(k) ? ' yt' : ''}"></div>`;
+        sec.querySelector('b').textContent = name;
+        sec.querySelector('.btn').onclick = () => { setType(tab); const sb = document.querySelector(`.search[data-target="${tab}"]`); sb && sb._setQuery(q, k); sb && sb.scrollIntoView({ behavior: 'smooth', block: 'center' }); };
+        box.appendChild(sec);
+        fetchSearch(k, q).then(r => {
+          const row = sec.querySelector('.row');
+          sec.querySelector('.dim').textContent = r.results.length ? r.source + (r.hidden ? ` · 🚫 ${r.hidden}` : '') : 'нічого';
+          if (!r.results.length) { row.outerHTML = '<div class="msg">Нічого не знайдено</div>'; return; }
+          for (const it of r.results.slice(0, 14)) row.appendChild(tile(it, k, () => pickResult(it, k)));
+        }).catch(er => { sec.querySelector('.dim').textContent = '⚠️ ' + er.message; sec.querySelector('.row').remove(); });
+      }
+    };
+  }
+
+  // ── перетягування картинок/посилань з інших вкладок (Google, сайти) ──
+  function urlFromDrop(dt) {
+    const list = (dt.getData('text/uri-list') || '').split('\n').map(x => x.trim()).filter(x => x && !x.startsWith('#'));
+    const html = dt.getData('text/html');
+    const imgSrc = html && (html.match(/<img[^>]+src="([^"]+)"/i) || [])[1];
+    let u = (imgSrc && /^https?:/.test(imgSrc)) ? imgSrc.replace(/&amp;/g, '&') : (list[0] || dt.getData('text/plain') || '').trim();
+    // посилання Google «imgres» → справжня картинка
+    try { const x = new URL(u); if (x.hostname.includes('google.') && x.searchParams.get('imgurl')) u = x.searchParams.get('imgurl'); } catch {}
+    return /^https?:\/\//i.test(u) ? u : '';
+  }
+  function dropUrl(u) {
+    let target = /youtu\.?be|twitch\.tv|vimeo\.com|tiktok\.com|streamable\.com|\.(mp4|webm|mov)(\?|$)/i.test(u) ? 'video'
+      : /\.(mp3|ogg|wav|m4a|flac)(\?|$)/i.test(u) ? 'audio'
+      : /\.gif(\?|$)|giphy\.com|tenor\.com/i.test(u) ? 'gif'
+      : /\.(png|jpe?g|webp|avif|bmp)(\?|$)|encrypted-tbn|googleusercontent|bing\.net\/th/i.test(u) ? 'image'
+      : ['image', 'gif', 'video', 'audio', 'article'].includes(type) ? type : 'article';
+    setType(target);
+    if (files[target]) setFile(target, null, true);
+    const inp = document.querySelector(`[data-url="${target}"]`);
+    inp.value = u; inp.dispatchEvent(new Event('input'));
+    toast('✓ Посилання вставлено');
+  }
+
+  // ═════ улюблене ═════
+  function favThumb(f) {
+    if ((f.type === 'image' || f.type === 'gif') && f.src) return `<img loading="lazy" src="${encodeURI(f.src)}" alt="">`;
+    if (f.embed && f.embed.kind === 'youtube') return `<img loading="lazy" src="https://i.ytimg.com/vi/${encodeURIComponent(f.embed.id)}/mqdefault.jpg" alt="">`;
+    if (f.type === 'article' && f.image) return `<img loading="lazy" src="${encodeURI(f.image)}" alt="">`;
+    if (f.type === 'text') return `<div class="txt">${esc(f.text || '')}</div>`;
+    return svg(f.type);
+  }
+  function renderFavs() {
+    if (!st) return;
+    const box = $('favs'), q = $('favFilter').value.trim().toLowerCase();
+    const list = st.favorites.filter(f => !q || itemLabel(f).toLowerCase().includes(q));
+    if (favSel && !st.favorites.some(f => f.fid === favSel)) favSel = null;
+    if (!list.length) { box.innerHTML = `<div class="dim" style="grid-column:1/-1;padding:16px 4px">${st.favorites.length ? 'Нічого не знайдено' : 'Поки порожньо. Збережи щось через ☆ в «Нещодавніх».'}</div>`; return; }
+    box.innerHTML = '';
+    for (const f of list) {
+      const d = document.createElement('div');
+      d.className = 'fav' + (f.fid === favSel ? ' sel' : '');
+      d.innerHTML = `<div class="th">${favThumb(f)}</div><div class="lb"><div></div><div></div></div>`;
+      d.querySelector('.lb div').textContent = itemLabel(f);
+      d.querySelector('.lb div:last-child').textContent = `${MDRender.TAGS[f.type]} · зберіг ${f.savedBy}`;
+      if (me.role === 'broadcaster' || f.savedBy === me.login) {
+        const x = document.createElement('button'); x.className = 'del'; x.textContent = '✕'; x.title = 'Видалити з улюбленого';
+        x.onclick = e => { e.stopPropagation(); api('/api/favorites/' + f.fid, { method: 'DELETE' }).catch(er => toast(er.message, true)); };
+        d.appendChild(x);
+      }
+      d.onclick = () => { favSel = f.fid; renderFavs(); replay(); };
+      d.ondblclick = () => { favSel = f.fid; send(); };
+      box.appendChild(d);
+    }
+  }
+
+  // ═════ звук сповіщення ═════
+  function initNotify() {
+    $('filterRu').onchange = e => api('/api/settings', { json: { filterRu: e.target.checked } }).then(() => toast(e.target.checked ? '🚫 Російський контент приховано' : 'Фільтр вимкнено')).catch(er => toast(er.message, true));
+    const save = () => api('/api/settings', { json: { notify: { where: $('nWhere').value, sound: $('nSound').value, volume: +$('nVol').value } } }).catch(er => toast(er.message, true));
+    $('nWhere').onchange = save; $('nSound').onchange = () => { save(); MDRender.chime($('nSound').value, +$('nVol').value); };
+    $('nVol').oninput = () => $('nVolOut').textContent = $('nVol').value;
+    $('nVol').onchange = save;
+    $('nTest').onclick = () => { if (!MDRender.chime($('nSound').value, +$('nVol').value)) toast('Клацни ще раз: браузер блокує звук до першої взаємодії', true); };
+  }
+
+  // ═════ позиція, ефект ═════
+  function setPos(v) {
+    pos = v;
+    $$('#posGrid button').forEach(b => { b.classList.toggle('on', b.dataset.v === v); b.classList.toggle('auto', v === 'auto' && b.dataset.v === autoPos()); });
+    $('posAuto').classList.toggle('on', v === 'auto');
+    $('posHint').textContent = v === 'auto' ? (type === 'audio' ? 'Авто: правий нижній кут, впритул' : 'Авто: як задано в OBS (зазвичай центр)') : (['tl', 'tr', 'bl', 'br'].includes(v) ? 'Кут: впритул до краю екрана' : '');
+    replay();
+  }
+  const autoPos = () => type === 'audio' ? 'br' : 'center';
+  let replayT = null;
+  function replay() {
+    const sc = $('screen');
+    sc.classList.remove('no-anim');
+    pvKey = '';
+    clearTimeout(pvTimer); updatePreview();
+    clearTimeout(replayT); replayT = setTimeout(() => sc.classList.add('no-anim'), 2200);
+  }
+
+  // ═════ назва треку: теги MP3 (ID3) / YouTube ═════
+  const filled = { title: '', artist: '' };
+  function autoFill(title, artist, src) {
+    const ti = document.querySelector('[data-opt="audio.title"]'), ar = document.querySelector('[data-opt="audio.artist"]');
+    if (title && (!ti.value || ti.value === filled.title)) ti.value = filled.title = title;
+    if (artist && (!ar.value || ar.value === filled.artist)) ar.value = filled.artist = artist;
+    schedule();
+  }
+  async function readTags(file) {
+    const out = { title: '', artist: '' };
+    // запасний варіант: «Виконавець - Назва.mp3»
+    const base = (file.name || '').replace(/\.[^.]+$/, '').replace(/_/g, ' ');
+    const m = base.match(/^(.+?)\s+[-–—]\s+(.+)$/);
+    if (m) { out.artist = m[1].trim(); out.title = m[2].trim(); } else out.title = base;
+    try {
+      const buf = new Uint8Array(await file.slice(0, 512 * 1024).arrayBuffer());
+      if (buf[0] !== 0x49 || buf[1] !== 0x44 || buf[2] !== 0x33) return out; // "ID3"
+      const ver = buf[3];
+      const ss = i => (buf[i] << 21) | (buf[i + 1] << 14) | (buf[i + 2] << 7) | buf[i + 3];
+      const end = Math.min(buf.length, 10 + ss(6));
+      let i = 10;
+      if (buf[5] & 0x40) i += ver === 4 ? ss(10) : ((buf[10] << 24) | (buf[11] << 16) | (buf[12] << 8) | buf[13]) + 4;
+      const dec = (b) => {
+        const enc = b[0], d = b.subarray(1);
+        let txt;
+        if (enc === 1 || enc === 2) {
+          let le = enc === 1, start = 0;
+          if (enc === 1 && d[0] === 0xFE && d[1] === 0xFF) { le = false; start = 2; } else if (enc === 1 && d[0] === 0xFF && d[1] === 0xFE) start = 2;
+          txt = new TextDecoder(le ? 'utf-16le' : 'utf-16be').decode(d.subarray(start));
+        } else txt = new TextDecoder(enc === 3 ? 'utf-8' : 'windows-1251').decode(d);
+        return txt.replace(/\0[\s\S]*$/, '').trim();
+      };
+      const want = ver === 2 ? { TT2: 'title', TP1: 'artist' } : { TIT2: 'title', TPE1: 'artist' };
+      const got = {};
+      while (i < end - 10) {
+        const idLen = ver === 2 ? 3 : 4;
+        const id = String.fromCharCode(...buf.subarray(i, i + idLen));
+        if (!/^[A-Z0-9]+$/.test(id)) break;
+        let size, hdr;
+        if (ver === 2) { size = (buf[i + 3] << 16) | (buf[i + 4] << 8) | buf[i + 5]; hdr = 6; }
+        else { size = ver === 4 ? ss(i + 4) : ((buf[i + 4] << 24) | (buf[i + 5] << 16) | (buf[i + 6] << 8) | buf[i + 7]); hdr = 10; }
+        if (size <= 0 || i + hdr + size > buf.length) break;
+        if (want[id]) got[want[id]] = dec(buf.subarray(i + hdr, i + hdr + size));
+        i += hdr + size;
+      }
+      if (got.title) out.title = got.title;
+      if (got.artist) out.artist = got.artist;
+    } catch {}
+    return out;
+  }
+
+  // ═════ обмеження модера (пауза / кулдаун) ═════
+  function setLimits(l) {
+    limits = l;
+    if (me.role === 'broadcaster') return;
+    cdUntil = l.cooldownLeft > 0 ? Date.now() + l.cooldownLeft * 1000 : 0;
+    $('cdChip').hidden = !l.cooldown;
+    $('cdTxt').textContent = `кулдаун ${fmtCd(l.cooldown)}`;
+    const pb = $('pauseBanner');
+    pb.hidden = !(l.pausedUntil > Date.now());
+    if (!pb.hidden) pb.textContent = `⏸ Стрімер призупинив тобі надсилання до ${new Date(l.pausedUntil).toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' })}.`;
+    updateSend();
+  }
+  function tickCooldown() {
+    if (!me || me.role === 'broadcaster') return;
+    if (limits && limits.pausedUntil && limits.pausedUntil <= Date.now()) { limits.pausedUntil = 0; $('pauseBanner').hidden = true; }
+    updateSend();
+  }
+  const fmtCd = s => s >= 60 ? (s % 60 ? `${Math.floor(s / 60)} хв ${s % 60} с` : `${s / 60} хв`) : `${s} с`;
+
+  // ═════ модератори (стрімер) ═════
+  const CD_OPTS = [0, 3, 5, 10, 15, 30, 60, 120, 300, 600];
+  let modsData = { mods: [], defaultCooldown: 5 };
+  function initMods() {
+    $('defCd').innerHTML = CD_OPTS.map(v => `<option value="${v}">${v ? fmtCd(v) : 'без кулдауну'}</option>`).join('');
+    $('defCd').onchange = e => api('/api/settings', { json: { defaultCooldown: +e.target.value } }).then(() => toast('Збережено')).catch(er => toast(er.message, true));
+    $('addMod').onsubmit = async e => {
+      e.preventDefault();
+      const login = $('addLogin').value.trim(); if (!login) return;
+      try { await api('/api/mods/add', { json: { login } }); $('addLogin').value = ''; toast(`✅ @${login.replace(/^@/, '')} отримав доступ`); }
+      catch (er) { toast(er.message, true); }
+    };
+  }
+  function renderMods(d) {
+    modsData = d;
+    $('defCd').value = String(d.defaultCooldown);
+    const box = $('mods');
+    const active = d.mods.filter(m => hasAccess(m)).length;
+    $('modsCount').textContent = `з доступом: ${active} · онлайн: ${d.mods.filter(m => m.online).length}`;
+    if (!d.mods.length) { box.innerHTML = '<div class="dim" style="padding:14px 4px">Поки нікого. Модери з\'являться тут, щойно увійдуть. Ще можна натиснути «Підтягнути з Twitch» або додати людину вручну.</div>'; return; }
+    box.innerHTML = '';
+    const now = Date.now();
+    for (const m of d.mods) {
+      const ok = hasAccess(m), paused = m.pausedUntil > now;
+      const row = document.createElement('div');
+      row.className = 'mod' + (ok ? '' : ' blocked');
+      const av = m.avatar ? `<img class="av${m.online ? ' on' : ''}" src="${encodeURI(m.avatar)}" alt="">` : `<div class="av${m.online ? ' on' : ''}">${esc((m.name || '?')[0].toUpperCase())}</div>`;
+      const badges = [
+        m.twitchMod ? '<span class="badge2 tw">Twitch-мод</span>' : '',
+        m.status === 'allow' ? '<span class="badge2 ok">доступ дано вручну</span>' : '',
+        m.status === 'block' ? '<span class="badge2 bad">⛔ доступ забрано</span>' : '',
+        !ok && m.status !== 'block' ? '<span class="badge2 bad">не модер</span>' : '',
+        paused ? `<span class="badge2 pz">⏸ до ${new Date(m.pausedUntil).toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' })}</span>` : '',
+        m.cooldown != null ? `<span class="badge2">⏱ ${m.cooldown ? fmtCd(m.cooldown) : 'без кулдауну'}</span>` : '',
+        m.sent ? `<span class="badge2">📤 ${m.sent}</span>` : '',
+        m.online ? '<span class="badge2 ok">онлайн</span>' : '',
+      ].join('');
+      row.innerHTML = `${av}<div class="info"><div class="nm"></div><div class="badges">${badges}</div></div><div class="ctl"></div>`;
+      row.querySelector('.nm').textContent = m.name || m.login;
+      const ctl = row.querySelector('.ctl');
+
+      const cd = document.createElement('select'); cd.className = 'input'; cd.title = 'Кулдаун цього модера';
+      cd.innerHTML = `<option value="">⏱ за замовч. (${fmtCd(d.defaultCooldown)})</option>` + CD_OPTS.map(v => `<option value="${v}">⏱ ${v ? fmtCd(v) : 'без кулдауну'}</option>`).join('');
+      cd.value = m.cooldown == null ? '' : String(m.cooldown);
+      cd.onchange = () => modAct(m.login, { cooldown: cd.value === '' ? null : +cd.value });
+      ctl.appendChild(cd);
+
+      if (ok) {
+        if (paused) ctl.appendChild(btn('▶ Зняти паузу', '', () => modAct(m.login, { pauseMinutes: 0 })));
+        else {
+          const pz = document.createElement('select'); pz.className = 'input'; pz.title = 'Призупинити';
+          pz.innerHTML = '<option value="">⏸ Пауза…</option>' + [[5, '5 хв'], [15, '15 хв'], [30, '30 хв'], [60, '1 год'], [180, '3 год'], [720, '12 год']].map(([v, t]) => `<option value="${v}">${t}</option>`).join('');
+          pz.onchange = () => pz.value && modAct(m.login, { pauseMinutes: +pz.value });
+          ctl.appendChild(pz);
+        }
+        ctl.appendChild(btn('Забрати доступ', 'danger', () => confirm(`Забрати доступ у @${m.login}? Його одразу викине з панелі.`) && modAct(m.login, { status: 'block' })));
+      } else {
+        ctl.appendChild(btn('Дати доступ', 'sky', () => modAct(m.login, { status: 'allow' })));
+      }
+      if (!m.twitchMod) ctl.appendChild(btn('🗑', 'ghost', () => confirm(`Прибрати @${m.login} зі списку?`) && api('/api/mods/' + m.login, { method: 'DELETE' }).catch(er => toast(er.message, true)), 'Прибрати зі списку'));
+      box.appendChild(row);
+    }
+  }
+  const hasAccess = m => m.status === 'allow' || (m.status !== 'block' && m.twitchMod);
+  function btn(txt, cls, fn, title) { const b = document.createElement('button'); b.className = 'btn ' + cls; b.textContent = txt; b.onclick = fn; if (title) b.title = title; return b; }
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  function modAct(login, body) { return api('/api/mods/' + login, { json: body }).catch(er => toast(er.message, true)); }
+
+  // ═════ надсилання ═════
+  function send() {
+    if ($('sendBtn').disabled) return;
+    const fd = new FormData();
+    fd.append('type', type);
+    fd.append('note', $('note').value);
+    fd.append('duration', $('duration').value);
+    fd.append('size', size);
+    fd.append('pos', pos);
+    fd.append('fx', $('fx').value);
+    if (type === 'fav') {
+      if (!favSel) return;
+      $('sendBtn').disabled = true;
+      return api(`/api/favorites/${favSel}/send`, { method: 'POST' }).then(() => toast('✅ Вже на стрімі!')).catch(e => toast(e.message, true)).finally(() => updateSend());
+    }
+    if (type === 'image' || type === 'gif' || type === 'video' || type === 'audio') {
+      if (files[type]) fd.append('file', files[type], files[type].name || `paste.${(files[type].type.split('/')[1] || 'bin')}`);
+      else fd.append('url', urlOf(type));
+      if (type === 'video' || type === 'audio') {
+        fd.append('start', parseTime(opt(type + '.start')));
+        fd.append('volume', opt(type + '.volume'));
+        if (type === 'video') fd.append('muted', opt('video.muted') ? '1' : '0');
+        if (type === 'audio') { fd.append('title', opt('audio.title')); fd.append('artist', opt('audio.artist')); }
+      }
+    } else if (type === 'text') {
+      fd.append('title', opt('text.title')); fd.append('text', opt('text.text'));
+    } else if (type === 'article') {
+      fd.append('url', urlOf('article')); fd.append('title', opt('article.title')); fd.append('description', opt('article.description'));
+    }
+
+    const btn = $('sendBtn'), prog = $('prog');
+    btn.disabled = true; $('sendTxt').textContent = 'Надсилаю…';
+    prog.hidden = !files[type]; prog.value = 0;
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/api/show');
+    xhr.upload.onprogress = e => { if (e.lengthComputable) prog.value = e.loaded / e.total * 100; };
+    const done = () => { prog.hidden = true; updateSend(); };
+    xhr.onload = () => {
+      done();
+      let j = {}; try { j = JSON.parse(xhr.responseText); } catch {}
+      if (xhr.status === 401) return location.reload();
+      if (xhr.status !== 200) return toast(j.error || 'Помилка', true);
+      toast('✅ Вже на стрімі!');
+      resetForm(type);
+    };
+    xhr.onerror = () => { done(); toast('Немає зв\'язку з сервером', true); };
+    xhr.send(fd);
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,164 @@
+/* Картка на стрімі. Сцена завжди 1920×1080 (у передпоказі — масштабується).
+   Усі анімації — тільки transform + opacity (рахує відеокарта, без підвисань). */
+.md-stage {
+  position: absolute; left: 0; top: 0; width: 1920px; height: 1080px;
+  display: flex; align-items: center; justify-content: center;
+  padding: 50px 60px; box-sizing: border-box; pointer-events: none;
+  font-family: "Manrope", "Segoe UI", system-ui, -apple-system, sans-serif;
+  transform-origin: 0 0; contain: layout style;
+}
+/* усі позиції, крім центру, — впритул до краю */
+.md-stage:not(.pos-center) { padding: 0; }
+.md-stage.pos-left   { justify-content: flex-start; }
+.md-stage.pos-right  { justify-content: flex-end; }
+.md-stage.pos-top    { align-items: flex-start; }
+.md-stage.pos-bottom { align-items: flex-end; }
+.md-stage.pos-tl { justify-content: flex-start; align-items: flex-start; }
+.md-stage.pos-tr { justify-content: flex-end;   align-items: flex-start; }
+.md-stage.pos-bl { justify-content: flex-start; align-items: flex-end; }
+.md-stage.pos-br { justify-content: flex-end;   align-items: flex-end; }
+.pos-tl .md-card     { border-radius: 0 0 26px 0;   border-top: 0; border-left: 0;   transform-origin: top left; }
+.pos-tr .md-card     { border-radius: 0 0 0 26px;   border-top: 0; border-right: 0;  transform-origin: top right; }
+.pos-bl .md-card     { border-radius: 0 26px 0 0;   border-bottom: 0; border-left: 0;  transform-origin: bottom left; }
+.pos-br .md-card     { border-radius: 26px 0 0 0;   border-bottom: 0; border-right: 0; transform-origin: bottom right; }
+.pos-top .md-card    { border-radius: 0 0 26px 26px; border-top: 0;    transform-origin: top center; }
+.pos-bottom .md-card { border-radius: 26px 26px 0 0; border-bottom: 0; transform-origin: bottom center; }
+.pos-left .md-card   { border-radius: 0 26px 26px 0; border-left: 0;   transform-origin: left center; }
+.pos-right .md-card  { border-radius: 26px 0 0 26px; border-right: 0;  transform-origin: right center; }
+
+.md-card {
+  --mw: 1100px; --mh: 760px; --fs: 38px;
+  --sun: #ffc531; --sun2: #ff9f1c; --sky: #3d8bff; --glow: rgba(255, 197, 49, .3);
+  --s: var(--card-scale, 1);
+  position: relative; display: flex; flex-direction: column; max-width: var(--mw); max-height: var(--mh);
+  background: rgba(14, 13, 20, .92); color: #fff; border-radius: 26px; overflow: hidden;
+  border: 3px solid rgba(255, 197, 49, .75);
+  box-shadow: 0 24px 70px rgba(0,0,0,.55), 0 0 36px var(--glow);
+  transform: scale(var(--s)); transform-origin: center;
+  will-change: transform, opacity; backface-visibility: hidden;
+  animation: mdPop .55s cubic-bezier(.22, 1.2, .36, 1) both;
+}
+.md-card.t-audio { --glow: rgba(61, 139, 255, .3); }
+.md-card.size-s  { --mw: 760px;  --mh: 540px; --fs: 30px; }
+.md-card.size-m  { --mw: 1100px; --mh: 760px; --fs: 38px; }
+.md-card.size-l  { --mw: 1500px; --mh: 940px; --fs: 46px; }
+.md-card.size-xl { --mw: 1800px; --mh: 990px; --fs: 54px; }
+
+/* ═════ Ефекти появи (transform + opacity) ═════ */
+.md-card.fx-slide  { animation: mdSlide .6s cubic-bezier(.22, 1, .36, 1) both; }
+.md-card.fx-pop    { animation: mdPop .55s cubic-bezier(.22, 1.2, .36, 1) both; }
+.md-card.fx-flip   { animation: mdFlip .7s cubic-bezier(.22, 1.1, .36, 1) both; }
+.md-card.fx-zoom   { animation: mdZoom .55s cubic-bezier(.22, 1, .36, 1) both; }
+.md-card.fx-reveal { animation: mdReveal .6s cubic-bezier(.22, 1, .36, 1) both; }
+.md-card.fx-glitch { animation: mdGlitch .6s linear both; }
+.md-card.fx-none   { animation: none; }
+
+@keyframes mdSlide {
+  from { opacity: 0; transform: translate3d(var(--fx-x, 0), var(--fx-y, 80px), 0) scale(var(--s)); }
+  40%  { opacity: 1; }
+  to   { opacity: 1; transform: translate3d(0, 0, 0) scale(var(--s)); }
+}
+@keyframes mdPop {
+  from { opacity: 0; transform: scale(calc(var(--s) * .7)); }
+  45%  { opacity: 1; }
+  to   { opacity: 1; transform: scale(var(--s)); }
+}
+@keyframes mdFlip {
+  from { opacity: 0; transform: perspective(1600px) rotateX(-70deg) scale(calc(var(--s) * .92)); }
+  50%  { opacity: 1; }
+  to   { opacity: 1; transform: perspective(1600px) rotateX(0deg) scale(var(--s)); }
+}
+@keyframes mdZoom {
+  from { opacity: 0; transform: scale(calc(var(--s) * 1.25)); }
+  to   { opacity: 1; transform: scale(var(--s)); }
+}
+/* розгортання з точки прив'язки (кут/край/центр) */
+@keyframes mdReveal {
+  from { opacity: 0; transform: scale(calc(var(--s) * .05)); }
+  30%  { opacity: 1; }
+  to   { opacity: 1; transform: scale(var(--s)); }
+}
+@keyframes mdGlitch {
+  0%   { opacity: 0; transform: translate3d(0, 0, 0) scale(var(--s)); }
+  10%  { opacity: 1; transform: translate3d(-24px, 0, 0) skewX(-12deg) scale(var(--s)); }
+  20%  { opacity: .4; transform: translate3d(18px, 3px, 0) skewX(8deg) scale(var(--s)); }
+  30%  { opacity: 1; transform: translate3d(-10px, -2px, 0) scale(var(--s)); }
+  40%  { opacity: .7; transform: translate3d(8px, 0, 0) skewX(-4deg) scale(var(--s)); }
+  52%  { opacity: 1; transform: translate3d(-4px, 0, 0) scale(var(--s)); }
+  64%  { transform: translate3d(2px, 0, 0) scale(var(--s)); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0) scale(var(--s)); }
+}
+
+/* відблиск після появи */
+.md-card::after { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 60%; pointer-events: none; z-index: 3;
+  background: linear-gradient(105deg, transparent 0%, rgba(255,255,255,.22) 45%, rgba(255,240,190,.1) 55%, transparent 100%);
+  transform: translate3d(-120%, 0, 0); will-change: transform;
+  animation: mdShine 1s .45s cubic-bezier(.4, 0, .2, 1) forwards; }
+.md-card.fx-none::after, .md-card.out::after { display: none; }
+@keyframes mdShine { to { transform: translate3d(260%, 0, 0); } }
+
+/* ═════ Зникнення ═════ */
+.md-card.out { animation: mdOut .35s cubic-bezier(.55, 0, 1, .45) both !important; }
+.md-card.out.fx-slide { animation-name: mdSlideOut !important; }
+@keyframes mdOut { to { opacity: 0; transform: scale(calc(var(--s) * .88)); } }
+@keyframes mdSlideOut { to { opacity: 0; transform: translate3d(var(--fx-x, 0), var(--fx-y, 80px), 0) scale(var(--s)); } }
+
+.md-head {
+  display: flex; align-items: center; gap: 14px; padding: 14px 24px; flex: none;
+  background: linear-gradient(90deg, var(--sun), var(--sun2)); color: #241800;
+  font-size: calc(var(--fs) * .62); font-weight: 600;
+}
+.md-head img { width: 1.6em; height: 1.6em; border-radius: 50%; border: 2px solid rgba(0,0,0,.25); }
+.md-head .who { font-weight: 800; }
+.md-head .tag { margin-left: auto; font-size: .72em; text-transform: uppercase; letter-spacing: .1em; opacity: .75; font-weight: 800; }
+
+.md-body { min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.md-media { display: block; max-width: var(--mw); max-height: calc(var(--mh) - 170px); object-fit: contain; margin: 0 auto; background: #000; min-width: 200px; }
+.md-embed { border: 0; display: block; background: #000; aspect-ratio: 16 / 9; width: min(var(--mw), calc((var(--mh) - 170px) * 16 / 9)); }
+.md-embed.vertical { aspect-ratio: 9 / 16; width: calc((var(--mh) - 170px) * 9 / 16); }
+.md-embed > div, .md-embed iframe { width: 100%; height: 100%; border: 0; }
+
+.md-text { padding: 26px 32px 30px; font-size: var(--fs); line-height: 1.35; white-space: pre-wrap; word-break: break-word; overflow: hidden; min-width: 420px; }
+.md-text h2 { margin: 0 0 12px; font-size: 1.18em; color: var(--sun); line-height: 1.15; }
+
+.md-article { display: flex; flex-direction: column; width: min(var(--mw), 980px); }
+.md-card.size-l .md-article, .md-card.size-xl .md-article { width: min(var(--mw), 1300px); }
+.md-article .cover { width: 100%; max-height: calc(var(--mh) * .5); object-fit: cover; display: block; background: #000; }
+.md-article .info { padding: 22px 30px 26px; }
+.md-article .site { font-size: calc(var(--fs) * .5); text-transform: uppercase; letter-spacing: .1em; color: var(--sun); margin-bottom: 8px; font-weight: 800; }
+.md-article .title { font-size: calc(var(--fs) * 1.02); font-weight: 800; line-height: 1.18; }
+.md-article .desc { font-size: calc(var(--fs) * .66); opacity: .85; margin-top: 10px; line-height: 1.4;
+  display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+
+.md-audio { display: flex; align-items: center; gap: 24px; padding: 22px 28px; width: min(var(--mw), calc(var(--fs) * 18)); box-sizing: border-box; }
+.md-audio .eyebrow { font-size: calc(var(--fs) * .42); font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--sun); margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
+.md-audio .eyebrow::before { content: ""; width: .7em; height: .7em; border-radius: 50%; background: #ff4d5a; box-shadow: 0 0 10px #ff4d5a; animation: mdBlink 1.2s ease-in-out infinite; }
+.md-audio.paused .eyebrow::before { animation: none; opacity: .4; }
+@keyframes mdBlink { 50% { opacity: .25; } }
+.md-audio .artist { font-size: calc(var(--fs) * .56); color: var(--mute, #c9c3d6); opacity: .9; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.md-card.t-audio { --glow: rgba(61, 139, 255, .35); }
+.md-audio .disc { flex: none; will-change: transform; width: calc(var(--fs) * 3); height: calc(var(--fs) * 3); border-radius: 50%;
+  background: conic-gradient(from 0deg, var(--sun), var(--sun2), var(--sky), var(--sun)); position: relative;
+  animation: mdSpin 6s linear infinite; background-size: cover; background-position: center; box-shadow: 0 0 0 6px rgba(255,255,255,.06); }
+.md-audio .disc::after { content: ""; position: absolute; inset: 38%; border-radius: 50%; background: #0e0d14; box-shadow: 0 0 0 4px rgba(255,255,255,.2); }
+.md-audio.paused .disc { animation-play-state: paused; }
+@keyframes mdSpin { to { transform: rotate(360deg); } }
+.md-audio .meta { flex: 1; min-width: 0; }
+.md-audio .atitle { font-size: calc(var(--fs) * .78); font-weight: 800; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.md-audio .eq { display: flex; align-items: flex-end; gap: 6px; height: calc(var(--fs) * 1.1); margin-top: 14px; }
+.md-audio .eq i { width: 10px; height: 100%; background: linear-gradient(var(--sun), var(--sky)); border-radius: 4px;
+  transform-origin: bottom; transform: scaleY(.15); will-change: transform; animation: mdEq 1s ease-in-out infinite; }
+.md-audio.paused .eq i { animation-play-state: paused; }
+.md-audio .eq i:nth-child(odd) { animation-duration: .8s; }
+.md-audio .eq i:nth-child(3n) { animation-duration: 1.25s; }
+@keyframes mdEq { 0%, 100% { transform: scaleY(.15); } 50% { transform: scaleY(1); } }
+.md-audio .time { margin-top: 12px; height: 8px; border-radius: 6px; background: rgba(255,255,255,.12); overflow: hidden; }
+.md-audio .time b { display: block; height: 100%; width: 100%; background: var(--sun); transform-origin: left; transform: scaleX(0); transition: transform .5s linear; }
+.md-audio audio { width: 100%; margin-top: 14px; }
+.md-hidden-player { position: absolute; width: 2px; height: 2px; opacity: 0; pointer-events: none; overflow: hidden; }
+
+.md-note { padding: 16px 26px; font-size: calc(var(--fs) * .62); line-height: 1.35; background: rgba(61, 139, 255, .14);
+  border-top: 2px solid rgba(61, 139, 255, .45); white-space: pre-wrap; word-break: break-word; flex: none; }
+.md-note::before { content: "💬 "; }
+
+.md-bar { position: absolute; left: 0; bottom: 0; height: 6px; width: 100%; background: linear-gradient(90deg, var(--sky), var(--sun)); transform-origin: left; will-change: transform; }
