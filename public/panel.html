@@ -44,6 +44,12 @@
   .src-seg button.chipb.on { background: linear-gradient(135deg, var(--sky), #2563eb); color: #fff; border-color: transparent; }
   .src-seg .google { margin-left: auto; font: 700 12px "Manrope", "Segoe UI", sans-serif; padding: 6px 11px; border-radius: 99px; border: 1px solid var(--line); background: #fff; color: #222; text-decoration: none; }
   .more { width: 100%; margin-top: 8px; }
+  .gwatch { margin-bottom: 10px; padding: 10px 12px; border-radius: 12px; font-size: 12.5px; line-height: 1.45; color: var(--mute);
+    background: rgba(66,133,244,.12); border: 1px solid rgba(66,133,244,.4); }
+  .gwatch b { color: var(--text); }
+  .gwatch .gw-act { display: flex; gap: 6px; margin-top: 8px; }
+  .gwatch .gw-act .btn { padding: 6px 12px; font-size: 12.5px; }
+  .src-seg .google { cursor: pointer; }
   .drop-hint { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; background: rgba(10,8,16,.6); border: 4px dashed var(--sun); font: 800 26px "Unbounded", sans-serif; color: var(--sun); pointer-events: none; }
 
   /* пошук */
@@ -63,7 +69,7 @@
   .gres .r .ch { padding: 2px 8px 8px; font-size: 11px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .sres .r:hover { border-color: rgba(255,197,49,.5); }
   .sres .r.sel { border-color: var(--sun); box-shadow: 0 0 0 3px rgba(255,197,49,.25); }
-  .sres.yt { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
+  .sres.yt { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); max-height: 460px; }
   .sres.yt .r { aspect-ratio: auto; background: rgba(255,255,255,.04); text-align: left; color: var(--text); font: inherit; }
   .sres.yt .r img { aspect-ratio: 16 / 9; height: auto; }
   .sres.yt .r .d { position: absolute; right: 6px; top: 6px; font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 6px; background: rgba(0,0,0,.75); }
@@ -685,6 +691,8 @@
     $$('.pane').forEach(p => p.hidden = p.dataset.pane !== t);
     $('designBox').hidden = t === 'fav';
     if (t === 'gif') { const b = document.querySelector('[data-search="gif"]'); if (b && !b._loaded) { b._loaded = true; b._run(''); } }
+    if (t === 'video' && cfg.twitchReady) { const b = document.querySelector('[data-search="video"]'); if (b && !b._loaded) { b._loaded = true; b._run(''); } }
+    $$('.gwatch').forEach(x => x.hidden = !(gWatch > Date.now() && (t === 'image' || t === 'gif')));
     const media = t === 'video' || t === 'audio';
     $('durZero').textContent = media ? 'До кінця ролика' : 'Поки не приберуть';
     if (media && !$('duration')._touched) $('duration').value = '0';
@@ -854,19 +862,23 @@
   const SRC = {
     image: [['image', 'Картинки (Bing + DuckDuckGo)']],
     gif: [['gif', 'GIF']],
-    video: [['youtube', '▶ YouTube'], ['clips', '✂️ Кліпи каналу']],
-    audio: [['youtube', '▶ YouTube']],
+    video: [['clips', '✂️ Кліпи каналу'], ['youtube', '▶ YouTube']],
+    audio: [['music', '🎵 YouTube Music']],
   };
-  const PH = { image: '🔎 Пошук картинок…', gif: '🔎 Пошук GIF… (порожньо — популярні)', youtube: '🔎 Пошук на YouTube…', clips: '🔎 Пошук у кліпах каналу… (порожньо — свіжі)' };
-  const KIND_TARGET = { image: 'image', gif: 'gif', youtube: 'video', clips: 'video' };
-  const wide = k => k === 'youtube' || k === 'clips';
+  const PH = { image: '🔎 Пошук картинок…', gif: '🔎 Пошук GIF… (порожньо — популярні)', youtube: '🔎 Пошук на YouTube…', music: '🔎 Пошук пісні на YouTube Music…', clips: '🔎 Фільтр кліпів за назвою чи автором…' };
+  const KIND_TARGET = { image: 'image', gif: 'gif', youtube: 'video', music: 'audio', clips: 'video' };
+  const wide = k => k === 'youtube' || k === 'clips' || k === 'music';
 
   function tile(it, kind, onPick) {
     const b = document.createElement('button'); b.type = 'button'; b.className = 'r'; b.title = it.title || '';
     const img = document.createElement('img'); img.loading = 'lazy'; img.referrerPolicy = 'no-referrer'; img.decoding = 'async';
     img.src = it.thumb;
     // анімоване прев'ю GIF; якщо сайт не віддає — показуємо статичну мініатюру
-    img.onerror = () => { if (it.still && img.src !== it.still) img.src = it.still; else b.remove(); };
+    img.onerror = () => {
+      if (it.still && img.src !== it.still) img.src = it.still;
+      else if (wide(kind)) { img.removeAttribute('src'); img.style.background = 'linear-gradient(135deg,#2a2438,#15131d)'; img.alt = ''; }
+      else b.remove();   // картинка/GIF без превʼю — немає сенсу показувати
+    };
     b.appendChild(img);
     if (wide(kind)) {
       if (it.duration) { const d = document.createElement('span'); d.className = 'd'; d.textContent = it.duration; b.appendChild(d); }
@@ -876,13 +888,18 @@
     b.onclick = () => onPick(b);
     return b;
   }
-  function pickResult(it, kind) {
-    const target = KIND_TARGET[kind];
+  function pickResult(it, kind, tgt) {
+    const target = tgt || KIND_TARGET[kind];
     if (type !== target) setType(target);
     const u = document.querySelector(`[data-url="${target}"]`);
     if (files[target]) setFile(target, null, true);
     u.value = it.url; u.dispatchEvent(new Event('input'));
-    toast('✓ Вибрано — дивись передпоказ');
+    if (target === 'audio') {
+      const ti = document.querySelector('[data-opt="audio.title"]'), ar = document.querySelector('[data-opt="audio.artist"]');
+      ti.value = filled.title = it.title || ''; ar.value = filled.artist = it.artist || '';
+      schedule();
+    }
+    toast(target === 'audio' ? '🎵 Вибрано — грає лише звук, без відео' : '✓ Вибрано — дивись передпоказ');
   }
   const fetchSearch = (kind, q, p = 0) => api(`/api/search?kind=${kind}&q=${encodeURIComponent(q)}&p=${p}`);
   const googleUrl = (q, kind) => 'https://www.google.com/search?tbm=isch&hl=uk&q=' + encodeURIComponent(q || '') + (kind === 'gif' ? '&tbs=itp:animated' : '');
@@ -899,15 +916,16 @@
       seg.querySelectorAll('.chipb').forEach(c => c.classList.toggle('on', c.dataset.k === k));
     };
     if (srcs.length > 1) srcs.forEach(([k, n]) => { const c = document.createElement('button'); c.type = 'button'; c.className = 'chipb'; c.dataset.k = k; c.textContent = n; c.onclick = () => { setKind(k); if (q || k === 'clips') run(q); }; seg.appendChild(c); });
-    if (kind === 'clips' || target === 'video') { /* кліпи доступні лише з Twitch-ключами */ if (!cfg.twitchReady) seg.querySelector('[data-k="clips"]')?.remove(); }
+    if (target === 'video' && !cfg.twitchReady) { seg.querySelector('[data-k="clips"]')?.remove(); kind = 'youtube'; }
     if (target === 'image' || target === 'gif') {
-      const g = document.createElement('a'); g.className = 'google'; g.target = '_blank'; g.rel = 'noopener';
-      g.innerHTML = '<b style="color:#4285f4">G</b><b style="color:#ea4335">o</b><b style="color:#fbbc05">o</b><b style="color:#4285f4">g</b><b style="color:#34a853">l</b><b style="color:#ea4335">e</b> ↗';
-      g.title = 'Відкрити пошук у Google. Знайдену картинку перетягни сюди або скопіюй посилання на зображення';
-      g.onclick = () => { g.href = googleUrl(inp.value.trim(), target); };
+      const g = document.createElement('button'); g.type = 'button'; g.className = 'google';
+      g.innerHTML = '<b style="color:#4285f4">G</b><b style="color:#ea4335">o</b><b style="color:#fbbc05">o</b><b style="color:#4285f4">g</b><b style="color:#34a853">l</b><b style="color:#ea4335">e</b> ⧉';
+      g.title = 'Відкрити Google у вікні поруч — скопійована там картинка сама потрапить сюди';
+      g.onclick = () => openGoogle(inp.value.trim(), target);
       seg.appendChild(g);
     }
     if (!seg.children.length) seg.remove();
+    if (target === 'image' || target === 'gif') box.prepend(gwatchBox());
     setKind(kind);
 
     async function run(query, append) {
@@ -920,8 +938,8 @@
         if (my !== seq) return;
         if (!append) res.innerHTML = '';
         if (!r.results.length && !append) { res.innerHTML = `<div class="msg">Нічого не знайдено 🤷${r.hidden ? ` (приховано російських: ${r.hidden})` : ''}</div>`; return; }
-        for (const it of r.results) res.appendChild(tile(it, kind, b => { $$('.r.sel', res).forEach(x => x.classList.remove('sel')); b.classList.add('sel'); pickResult(it, kind); }));
-        src.textContent = 'Джерела: ' + r.source + (r.failed && r.failed.length ? ` · не відповіли: ${r.failed.join(', ')}` : '') + (r.hidden ? ` · 🚫 приховано російських: ${r.hidden}` : '');
+        for (const it of r.results) res.appendChild(tile(it, kind, b => { $$('.r.sel', res).forEach(x => x.classList.remove('sel')); b.classList.add('sel'); pickResult(it, kind, target); }));
+        src.textContent = (kind === 'clips' ? `Кліпів: ${r.total} · спочатку новіші · ` : '') + 'Джерела: ' + r.source + (r.failed && r.failed.length ? ` · не відповіли: ${r.failed.join(', ')}` : '') + (r.hidden ? ` · 🚫 приховано російських: ${r.hidden}` : '');
         more.hidden = !r.more;
       } catch (e) { if (my === seq) { if (!append) res.innerHTML = ''; res.insertAdjacentHTML('beforeend', `<div class="msg">⚠️ ${esc(e.message)}</div>`); } }
     }
@@ -933,7 +951,7 @@
 
   // ── пошук усюди одразу ──
   function initGlobalSearch() {
-    const kinds = [['image', 'Картинки', 'image'], ['gif', 'GIF', 'gif'], ['youtube', 'YouTube', 'video']];
+    const kinds = [['image', 'Картинки', 'image'], ['gif', 'GIF', 'gif'], ['youtube', 'Відео YouTube', 'video'], ['music', 'Музика (YouTube Music)', 'audio']];
     if (cfg.twitchReady) kinds.push(['clips', 'Кліпи каналу', 'video']);
     $('gSearch').onsubmit = async e => {
       e.preventDefault();
@@ -951,10 +969,65 @@
           const row = sec.querySelector('.row');
           sec.querySelector('.dim').textContent = r.results.length ? r.source + (r.hidden ? ` · 🚫 ${r.hidden}` : '') : 'нічого';
           if (!r.results.length) { row.outerHTML = '<div class="msg">Нічого не знайдено</div>'; return; }
-          for (const it of r.results.slice(0, 14)) row.appendChild(tile(it, k, () => pickResult(it, k)));
+          for (const it of r.results.slice(0, 14)) row.appendChild(tile(it, k, () => pickResult(it, k, tab)));
         }).catch(er => { sec.querySelector('.dim').textContent = '⚠️ ' + er.message; sec.querySelector('.row').remove(); });
       }
     };
+  }
+
+  // ── Google у вікні поруч + автопідхоплення з буфера обміну ──
+  // Google не дозволяє вбудовувати себе в інші сайти, тому відкриваємо його окремим вікном збоку,
+  // а коли повертаєшся в панель — беремо з буфера скопійовану картинку чи її адресу.
+  let gWatch = 0, lastClip = '';
+  function openGoogle(q, kind) {
+    const w = Math.round(screen.availWidth * .5), h = screen.availHeight;
+    const left = (window.screenX || 0) > screen.availWidth / 3 ? 0 : screen.availWidth - w;
+    const win = window.open(googleUrl(q, kind), 'mdGoogle', `popup=yes,width=${w},height=${h},left=${left},top=0`);
+    if (!win) { toast('Браузер заблокував вікно — дозволь спливаючі вікна для цієї сторінки', true); return; }
+    gWatch = Date.now() + 20 * 60 * 1000;
+    // одразу запитуємо дозвіл на читання буфера (браузер спитає один раз)
+    navigator.clipboard?.readText?.().then(t => { lastClip = t || ''; }).catch(() => {});
+    $$('.gwatch').forEach(x => x.hidden = false);
+  }
+  async function grabClipboard(force) {
+    if (!force && gWatch < Date.now()) return;
+    if (!navigator.clipboard) return force && toast('Буфер обміну недоступний у цьому браузері', true);
+    try {
+      let txt = '';
+      try { txt = (await navigator.clipboard.readText()).trim(); } catch {}
+      if (txt && txt !== lastClip) {
+        if (/^data:image\//.test(txt)) {
+          lastClip = txt;
+          const blob = await (await fetch(txt)).blob();
+          return pickAny(new File([blob], 'google.' + (blob.type.split('/')[1] || 'png'), { type: blob.type }));
+        }
+        let u = txt;
+        try { const x = new URL(u); if (x.hostname.includes('google.') && x.searchParams.get('imgurl')) u = x.searchParams.get('imgurl'); } catch {}
+        if (/^https?:\/\/\S+$/.test(u)) { lastClip = txt; dropUrl(u); return; }
+      }
+      if (navigator.clipboard.read) {
+        for (const item of await navigator.clipboard.read()) {
+          const t = item.types.find(x => x.startsWith('image/'));
+          if (!t) continue;
+          const blob = await item.getType(t);
+          const sig = t + ':' + blob.size;
+          if (sig === lastClip && !force) return;
+          lastClip = sig;
+          return pickAny(new File([blob], 'google.' + (t.split('/')[1] || 'png'), { type: t }));
+        }
+      }
+      if (force) toast('У буфері немає картинки чи посилання', true);
+    } catch (e) { if (force) toast('Дозволь сторінці читати буфер обміну (значок 🔒 в адресному рядку)', true); }
+  }
+  window.addEventListener('focus', () => setTimeout(() => grabClipboard(false), 150));
+  function gwatchBox() {
+    const d = document.createElement('div'); d.className = 'gwatch'; d.hidden = true;
+    d.innerHTML = `<b>🔗 Google відкрито у вікні поруч.</b> Клацни правою кнопкою по картинці → <b>«Копіювати адресу зображення»</b> (для GIF) або <b>«Копіювати зображення»</b>, потім повернись сюди — вставлю сам. Можна й просто перетягнути картинку сюди.
+      <div class="gw-act"><button type="button" class="btn sky">📋 Вставити з буфера</button><button type="button" class="btn ghost">✕</button></div>`;
+    const [b1, b2] = d.querySelectorAll('button');
+    b1.onclick = () => grabClipboard(true);
+    b2.onclick = () => { gWatch = 0; $$('.gwatch').forEach(x => x.hidden = true); };
+    return d;
   }
 
   // ── перетягування картинок/посилань з інших вкладок (Google, сайти) ──

@@ -832,13 +832,13 @@ app.post('/api/favorites/:fid/send', requireUser, (req, res) => {
 // ═════ Пошук (проксі, щоб не було CORS і ключі не світились у браузері) ═════
 const searchCache = new Map();
 const lastSearch = new Map();
-const KINDS = ['image', 'gif', 'youtube', 'clips'];
+const KINDS = ['image', 'gif', 'youtube', 'music', 'clips'];
 app.get('/api/search', requireUser, async (req, res) => {
   const kind = String(req.query.kind || '');
   const q = String(req.query.q || '').trim().slice(0, 120);
   const p = Math.min(9, Math.max(0, parseInt(req.query.p, 10) || 0));
   if (!KINDS.includes(kind)) return res.status(400).json({ error: 'kind' });
-  if (!q && (kind === 'image' || kind === 'youtube')) return res.json({ results: [], more: false });
+  if (!q && (kind === 'image' || kind === 'youtube' || kind === 'music')) return res.json({ results: [], more: false });
   const now = Date.now();
   const k2 = req.user.login + kind;
   if (now - (lastSearch.get(k2) || 0) < 400) return res.status(429).json({ error: 'Не так швидко 🙂' });
@@ -856,11 +856,17 @@ app.get('/api/search', requireUser, async (req, res) => {
     jobs.push(['Bing', search.bing(gq, p, true)]);
   }
   if (kind === 'youtube') jobs.push(['YouTube', search.youtube(q, p)]);
+  if (kind === 'music') {
+    // YouTube Music (пісні); якщо не відповів — звичайний YouTube
+    jobs.push(['YouTube Music', search.ytmusic(q, p).then(r => r.length || p ? r : search.youtube(q + ' audio', p))
+      .catch(() => search.youtube(q + ' audio', p))]);
+  }
   if (kind === 'clips') {
     jobs.push(['Twitch', (async () => {
       const H = await appHeaders();
       if (!H) throw new Error('Twitch-ключі не налаштовано');
-      return search.filterClips(await search.channelClips(cfg.channel, H, twitchUsers), q, p);
+      if (p > 0) return [];
+      return search.filterClips(await search.channelClips(cfg.channel, H, twitchUsers), q);
     })()]);
   }
   const settled = await Promise.allSettled(jobs.map(j => j[1]));
@@ -881,7 +887,7 @@ app.get('/api/search', requireUser, async (req, res) => {
     const f = rufilter.filterResults(results, { urls: ['url', 'page'], texts: ['title', 'channel', 'user'] });
     results = f.results; hidden = f.hidden;
   }
-  const v = { results: results.slice(0, 60), hidden, source: ok.join(' + '), failed, more: rawCount >= (kind === 'clips' ? 40 : 15) };
+  const v = { results: kind === 'clips' ? results : results.slice(0, 60), total: results.length, hidden, source: ok.join(' + '), failed, more: kind !== 'clips' && rawCount >= 15 };
   searchCache.set(key, { t: now, v });
   if (searchCache.size > 400) searchCache.delete(searchCache.keys().next().value);
   res.json(v);
