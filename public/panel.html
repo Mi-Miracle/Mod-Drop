@@ -26,6 +26,26 @@
   .main .col { min-width: 0; }
   .sticky { position: sticky; top: 92px; z-index: 5; }
   @media (max-width: 1000px) { .main { grid-template-columns: 1fr; } .sticky { position: static; } }
+  /* пошук усюди */
+  .gsearch { display: flex; gap: 8px; margin-bottom: 12px; }
+  .gres { margin: -2px 0 14px; padding: 12px; border-radius: 16px; background: rgba(5,5,10,.45); border: 1px solid rgba(61,139,255,.35); }
+  .gres .gh { display: flex; align-items: center; gap: 8px; margin: 2px 0 8px; }
+  .gres .gh b { font-size: 13px; }
+  .gres .gh .dim { font-size: 11.5px; }
+  .gres .gh .btn { margin-left: auto; padding: 5px 10px; font-size: 12px; }
+  .gres .row { display: grid; grid-auto-flow: column; grid-auto-columns: 96px; gap: 6px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 8px; overscroll-behavior: contain; }
+  .gres .row.yt { grid-auto-columns: 170px; }
+  .gres .row .r { aspect-ratio: 1; }
+  .gres .row.yt .r { aspect-ratio: auto; }
+  .gres .msg { color: var(--dim); font-size: 12.5px; padding: 4px 2px 10px; }
+  .gres .close { float: right; }
+  .src-seg { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; align-items: center; }
+  .src-seg button.chipb { font: 700 12px "Manrope", "Segoe UI", sans-serif; padding: 6px 11px; border-radius: 99px; border: 1px solid var(--line); background: var(--glass2); color: var(--mute); cursor: pointer; }
+  .src-seg button.chipb.on { background: linear-gradient(135deg, var(--sky), #2563eb); color: #fff; border-color: transparent; }
+  .src-seg .google { margin-left: auto; font: 700 12px "Manrope", "Segoe UI", sans-serif; padding: 6px 11px; border-radius: 99px; border: 1px solid var(--line); background: #fff; color: #222; text-decoration: none; }
+  .more { width: 100%; margin-top: 8px; }
+  .drop-hint { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; background: rgba(10,8,16,.6); border: 4px dashed var(--sun); font: 800 26px "Unbounded", sans-serif; color: var(--sun); pointer-events: none; }
+
   /* пошук */
   .search { margin-top: 14px; padding: 12px; border-radius: 14px; background: rgba(5,5,10,.35); border: 1px solid var(--line); }
   .search form { display: flex; gap: 8px; }
@@ -33,7 +53,14 @@
   .sres { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 6px; margin-top: 10px; max-height: 300px; overflow: auto; overscroll-behavior: contain; }
   .sres:empty { display: none; }
   .sres .r { position: relative; aspect-ratio: 1; border-radius: 10px; overflow: hidden; cursor: pointer; background: #000; border: 2px solid transparent; padding: 0; }
-  .sres .r img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .sres .r img, .gres .r img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .gres .r { position: relative; border-radius: 10px; overflow: hidden; cursor: pointer; background: #000; border: 2px solid transparent; padding: 0; }
+  .gres .r:hover { border-color: rgba(255,197,49,.5); }
+  .gres .row.yt .r { background: rgba(255,255,255,.04); text-align: left; color: var(--text); font: inherit; }
+  .gres .row.yt .r img { aspect-ratio: 16 / 9; height: auto; }
+  .gres .r .d, .sres .r .d { position: absolute; right: 6px; top: 6px; font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 6px; background: rgba(0,0,0,.75); color: #fff; }
+  .gres .r .tt { padding: 6px 8px 0; font-size: 12px; font-weight: 700; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .gres .r .ch { padding: 2px 8px 8px; font-size: 11px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .sres .r:hover { border-color: rgba(255,197,49,.5); }
   .sres .r.sel { border-color: var(--sun); box-shadow: 0 0 0 3px rgba(255,197,49,.25); }
   .sres.yt { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
@@ -232,6 +259,11 @@
       <!-- ── Ліва колонка: що надсилаємо ── -->
       <div class="col">
         <div class="glass card">
+          <form class="gsearch" id="gSearch" autocomplete="off">
+            <input class="input" id="gQ" placeholder="🔎 Шукати всюди: картинки, GIF, YouTube, кліпи каналу…">
+            <button class="btn sky" type="submit">Знайти</button>
+          </form>
+          <div class="gres" id="gRes" hidden></div>
           <nav class="tabs" id="tabs"></nav>
 
           <!-- Картинка -->
@@ -257,7 +289,7 @@
             <div class="or">або посилання</div>
             <input class="input" type="url" data-url="video" placeholder="YouTube, Twitch, Vimeo, TikTok, Streamable або .mp4">
             <div data-detect="video"></div>
-            <div class="search" data-search="youtube" data-target="video"></div>
+            <div class="search" data-search="video" data-target="video"></div>
             <div class="sources"><span>YouTube / Shorts</span><span>Twitch-кліпи</span><span>Twitch VOD</span><span>Vimeo</span><span>TikTok</span><span>Streamable</span><span>.mp4 / .webm</span></div>
             <div class="section-h">Відтворення</div>
             <div class="grid2">
@@ -273,7 +305,7 @@
             <div class="or">або посилання</div>
             <input class="input" type="url" data-url="audio" placeholder="YouTube (тільки звук) або .mp3 / .ogg / .wav">
             <div data-detect="audio"></div>
-            <div class="search" data-search="youtube" data-target="audio"></div>
+            <div class="search" data-search="audio" data-target="audio"></div>
             <div class="grid2">
               <div><label class="lbl">🎵 Назва треку</label><input class="input" data-opt="audio.title" maxlength="140" placeholder="визначиться автоматично"></div>
               <div><label class="lbl">Виконавець</label><input class="input" data-opt="audio.artist" maxlength="100" placeholder="необов'язково"></div>
@@ -389,6 +421,7 @@
         <div class="row-switch"><div class="t"><b>Приймати від модерів</b><span>Вимкни, якщо зараз не до того</span></div><label class="switch"><input type="checkbox" id="enabled"><span></span></label></div>
         <div class="row-switch"><div class="t"><b>Кулдаун за замовчуванням</b><span>Пауза між надсиланнями для кожного модера</span></div>
           <select class="input" id="defCd" style="width:auto"></select></div>
+        <div class="row-switch"><div class="t"><b>🚫 Без російського контенту в пошуку</b><span>Ховає результати російською та з російських сайтів</span></div><label class="switch"><input type="checkbox" id="filterRu"><span></span></label></div>
         <div class="section-h" style="margin-top:6px">🔔 Звук сповіщення</div>
         <div class="grid2">
           <div><label class="lbl">Де грати</label>
@@ -545,6 +578,7 @@
     $('sizeSeg').addEventListener('click', () => setTimeout(replay));
     if (cfg.limits) setLimits(cfg.limits);
     $$('[data-search]').forEach(initSearch);
+    initGlobalSearch();
     $('favFilter').addEventListener('input', renderFavs);
     // браузер дозволяє звук лише після першого кліку
     document.addEventListener('pointerdown', () => MDRender.unlockAudio(), { once: true });
@@ -562,10 +596,23 @@
     document.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) send(); });
     document.addEventListener('paste', e => {
       const f = [...(e.clipboardData?.files || [])][0];
-      if (f) { e.preventDefault(); pickAny(f); }
+      if (f) { e.preventDefault(); return pickAny(f); }
+      const el = document.activeElement;
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) return;
+      const t = (e.clipboardData?.getData('text') || '').trim();
+      if (/^https?:\/\/\S+$/.test(t)) { e.preventDefault(); dropUrl(t); }
     });
+    let dh = null, dc = 0;
+    document.addEventListener('dragenter', () => { if (++dc === 1 && !dh) { dh = document.createElement('div'); dh.className = 'drop-hint'; dh.textContent = 'Відпусти, щоб додати 🌻'; document.body.appendChild(dh); } });
+    document.addEventListener('dragleave', () => { if (--dc <= 0) { dc = 0; dh && dh.remove(); dh = null; } });
     document.addEventListener('dragover', e => e.preventDefault());
-    document.addEventListener('drop', e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) pickAny(f); });
+    document.addEventListener('drop', e => {
+      e.preventDefault(); dc = 0; dh && dh.remove(); dh = null;
+      const f = e.dataTransfer.files[0];
+      if (f) return pickAny(f);
+      const u = urlFromDrop(e.dataTransfer);
+      if (u) dropUrl(u);
+    });
 
     new ResizeObserver(fitPreview).observe($('screen'));
     setType('image');
@@ -599,6 +646,7 @@
       MDRender.chime(s.notify.sound, s.notify.volume);
     lastShownKey = key;
     if (me.role === 'broadcaster' && s.notify && !document.activeElement?.closest?.('#ownerBox')) {
+      $('filterRu').checked = s.filterRu !== false;
       $('nWhere').value = s.notify.where; $('nSound').value = s.notify.sound; $('nVol').value = s.notify.volume; $('nVolOut').textContent = s.notify.volume;
     }
     const live = !!s.current;
@@ -654,7 +702,12 @@
     d.onclick = e => { if (e.target.closest('[data-clear]')) return setFile(t, null); inp.click(); };
     d.ondragover = e => { e.preventDefault(); d.classList.add('over'); };
     d.ondragleave = () => d.classList.remove('over');
-    d.ondrop = e => { e.preventDefault(); e.stopPropagation(); d.classList.remove('over'); const f = e.dataTransfer.files[0]; if (f) pickAny(f); };
+    d.ondrop = e => {
+      e.preventDefault(); e.stopPropagation(); d.classList.remove('over');
+      document.querySelector('.drop-hint')?.remove();
+      const f = e.dataTransfer.files[0]; if (f) return pickAny(f);
+      const u = urlFromDrop(e.dataTransfer); if (u) dropUrl(u);
+    };
     drawDrop(t);
   }
   function drawDrop(t) {
@@ -737,7 +790,7 @@
       if (r.error) { setDetect(t, r.error, true); return null; }
       if (r.embed) {
         const inf = r.info || {};
-        setDetect(t, '✓ ' + r.embed.label + (inf.title ? ' · ' + inf.title : '') + (t === 'video' && !r.embed.endEvent ? ' · тривалість ставиться вручну (за замовч. 1 хв)' : ''));
+        setDetect(t, '✓ ' + r.embed.label + (inf.title ? ' · ' + inf.title : '') + (inf.duration ? ` · ${Math.round(inf.duration)} с` : '') + (t === 'video' && !r.embed.endEvent && !inf.duration ? ' · тривалість ставиться вручну (за замовч. 1 хв)' : ''));
         if (t === 'audio' && inf.title) autoFill(inf.title, inf.author, u);
         const embed = { ...r.embed }; if (o.start) embed.start = o.start;
         return { ...base, ...o, ...extra, title: extra.title || (t === 'audio' ? inf.title || 'YouTube' : undefined), artist: extra.artist || (t === 'audio' ? inf.author || '' : undefined), embed };
@@ -797,41 +850,134 @@
   }
 
   // ═════ пошук ═════
-  const SEARCH_PH = { image: '🔎 Пошук картинок…', gif: '🔎 Пошук GIF… (порожньо — популярні)', youtube: '🔎 Пошук на YouTube…' };
+  // які джерела шукає кожна вкладка
+  const SRC = {
+    image: [['image', 'Картинки (Bing + DuckDuckGo)']],
+    gif: [['gif', 'GIF']],
+    video: [['youtube', '▶ YouTube'], ['clips', '✂️ Кліпи каналу']],
+    audio: [['youtube', '▶ YouTube']],
+  };
+  const PH = { image: '🔎 Пошук картинок…', gif: '🔎 Пошук GIF… (порожньо — популярні)', youtube: '🔎 Пошук на YouTube…', clips: '🔎 Пошук у кліпах каналу… (порожньо — свіжі)' };
+  const KIND_TARGET = { image: 'image', gif: 'gif', youtube: 'video', clips: 'video' };
+  const wide = k => k === 'youtube' || k === 'clips';
+
+  function tile(it, kind, onPick) {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'r'; b.title = it.title || '';
+    const img = document.createElement('img'); img.loading = 'lazy'; img.referrerPolicy = 'no-referrer'; img.decoding = 'async';
+    img.src = it.thumb;
+    // анімоване прев'ю GIF; якщо сайт не віддає — показуємо статичну мініатюру
+    img.onerror = () => { if (it.still && img.src !== it.still) img.src = it.still; else b.remove(); };
+    b.appendChild(img);
+    if (wide(kind)) {
+      if (it.duration) { const d = document.createElement('span'); d.className = 'd'; d.textContent = it.duration; b.appendChild(d); }
+      const tt = document.createElement('div'); tt.className = 'tt'; tt.textContent = it.title; b.appendChild(tt);
+      const ch = document.createElement('div'); ch.className = 'ch'; ch.textContent = it.channel || ''; b.appendChild(ch);
+    } else if (kind === 'gif') { const d = document.createElement('span'); d.className = 'd'; d.textContent = 'GIF'; b.appendChild(d); }
+    b.onclick = () => onPick(b);
+    return b;
+  }
+  function pickResult(it, kind) {
+    const target = KIND_TARGET[kind];
+    if (type !== target) setType(target);
+    const u = document.querySelector(`[data-url="${target}"]`);
+    if (files[target]) setFile(target, null, true);
+    u.value = it.url; u.dispatchEvent(new Event('input'));
+    toast('✓ Вибрано — дивись передпоказ');
+  }
+  const fetchSearch = (kind, q, p = 0) => api(`/api/search?kind=${kind}&q=${encodeURIComponent(q)}&p=${p}`);
+  const googleUrl = (q, kind) => 'https://www.google.com/search?tbm=isch&hl=uk&q=' + encodeURIComponent(q || '') + (kind === 'gif' ? '&tbs=itp:animated' : '');
+
   function initSearch(box) {
-    const kind = box.dataset.search, target = box.dataset.target;
-    box.innerHTML = `<form><input class="input" placeholder="${SEARCH_PH[kind]}"><button class="btn sky" type="submit">Знайти</button></form><div class="sres${kind === 'youtube' ? ' yt' : ''}"></div><div class="src"></div>`;
-    const inp = box.querySelector('input'), res = box.querySelector('.sres'), src = box.querySelector('.src');
-    let seq = 0;
-    box._run = async q => {
-      const my = ++seq;
-      res.innerHTML = '<div class="msg">⏳ Шукаю…</div>'; src.textContent = '';
-      try {
-        const r = await api(`/api/search?kind=${kind}&q=${encodeURIComponent(q)}`);
-        if (my !== seq) return;
-        res.innerHTML = '';
-        if (!r.results.length) { res.innerHTML = '<div class="msg">Нічого не знайдено 🤷</div>'; return; }
-        src.textContent = 'Джерело: ' + r.source + ' · натисни, щоб вибрати';
-        for (const it of r.results) {
-          const b = document.createElement('button'); b.type = 'button'; b.className = 'r'; b.title = it.title || '';
-          const img = document.createElement('img'); img.loading = 'lazy'; img.src = it.thumb; img.referrerPolicy = 'no-referrer';
-          img.onerror = () => b.remove();
-          b.appendChild(img);
-          if (kind === 'youtube') {
-            if (it.duration) { const d = document.createElement('span'); d.className = 'd'; d.textContent = it.duration; b.appendChild(d); }
-            const tt = document.createElement('div'); tt.className = 'tt'; tt.textContent = it.title; b.appendChild(tt);
-            const ch = document.createElement('div'); ch.className = 'ch'; ch.textContent = it.channel || ''; b.appendChild(ch);
-          }
-          b.onclick = () => {
-            $$('.r.sel', res).forEach(x => x.classList.remove('sel')); b.classList.add('sel');
-            const u = document.querySelector(`[data-url="${target}"]`);
-            u.value = it.url; u.dispatchEvent(new Event('input'));
-          };
-          res.appendChild(b);
-        }
-      } catch (e) { if (my === seq) res.innerHTML = `<div class="msg">⚠️ ${esc(e.message)}</div>`; }
+    const target = box.dataset.target, srcs = SRC[box.dataset.search];
+    let kind = srcs[0][0], q = '', page = 0, seq = 0;
+    box.innerHTML = `<form><input class="input"><button class="btn sky" type="submit">Знайти</button></form>
+      <div class="src-seg"></div><div class="sres"></div><button class="btn more" type="button" hidden>Показати ще</button><div class="src"></div>`;
+    const inp = box.querySelector('input'), res = box.querySelector('.sres'), src = box.querySelector('.src'), more = box.querySelector('.more'), seg = box.querySelector('.src-seg');
+    const setKind = k => {
+      kind = k; inp.placeholder = PH[k];
+      res.className = 'sres' + (wide(k) ? ' yt' : '');
+      seg.querySelectorAll('.chipb').forEach(c => c.classList.toggle('on', c.dataset.k === k));
     };
-    box.querySelector('form').onsubmit = e => { e.preventDefault(); box._loaded = true; box._run(inp.value.trim()); };
+    if (srcs.length > 1) srcs.forEach(([k, n]) => { const c = document.createElement('button'); c.type = 'button'; c.className = 'chipb'; c.dataset.k = k; c.textContent = n; c.onclick = () => { setKind(k); if (q || k === 'clips') run(q); }; seg.appendChild(c); });
+    if (kind === 'clips' || target === 'video') { /* кліпи доступні лише з Twitch-ключами */ if (!cfg.twitchReady) seg.querySelector('[data-k="clips"]')?.remove(); }
+    if (target === 'image' || target === 'gif') {
+      const g = document.createElement('a'); g.className = 'google'; g.target = '_blank'; g.rel = 'noopener';
+      g.innerHTML = '<b style="color:#4285f4">G</b><b style="color:#ea4335">o</b><b style="color:#fbbc05">o</b><b style="color:#4285f4">g</b><b style="color:#34a853">l</b><b style="color:#ea4335">e</b> ↗';
+      g.title = 'Відкрити пошук у Google. Знайдену картинку перетягни сюди або скопіюй посилання на зображення';
+      g.onclick = () => { g.href = googleUrl(inp.value.trim(), target); };
+      seg.appendChild(g);
+    }
+    if (!seg.children.length) seg.remove();
+    setKind(kind);
+
+    async function run(query, append) {
+      const my = ++seq;
+      q = query; if (!append) page = 0;
+      if (!append) res.innerHTML = '<div class="msg">⏳ Шукаю…</div>';
+      more.hidden = true; src.textContent = '';
+      try {
+        const r = await fetchSearch(kind, q, page);
+        if (my !== seq) return;
+        if (!append) res.innerHTML = '';
+        if (!r.results.length && !append) { res.innerHTML = `<div class="msg">Нічого не знайдено 🤷${r.hidden ? ` (приховано російських: ${r.hidden})` : ''}</div>`; return; }
+        for (const it of r.results) res.appendChild(tile(it, kind, b => { $$('.r.sel', res).forEach(x => x.classList.remove('sel')); b.classList.add('sel'); pickResult(it, kind); }));
+        src.textContent = 'Джерела: ' + r.source + (r.failed && r.failed.length ? ` · не відповіли: ${r.failed.join(', ')}` : '') + (r.hidden ? ` · 🚫 приховано російських: ${r.hidden}` : '');
+        more.hidden = !r.more;
+      } catch (e) { if (my === seq) { if (!append) res.innerHTML = ''; res.insertAdjacentHTML('beforeend', `<div class="msg">⚠️ ${esc(e.message)}</div>`); } }
+    }
+    more.onclick = () => { page++; more.disabled = true; run(q, true).finally(() => more.disabled = false); };
+    box.querySelector('form').onsubmit = e => { e.preventDefault(); box._loaded = true; run(inp.value.trim()); };
+    box._run = qq => run(qq);
+    box._setQuery = (qq, k) => { inp.value = qq; if (k && srcs.some(x => x[0] === k)) setKind(k); box._loaded = true; run(qq); };
+  }
+
+  // ── пошук усюди одразу ──
+  function initGlobalSearch() {
+    const kinds = [['image', 'Картинки', 'image'], ['gif', 'GIF', 'gif'], ['youtube', 'YouTube', 'video']];
+    if (cfg.twitchReady) kinds.push(['clips', 'Кліпи каналу', 'video']);
+    $('gSearch').onsubmit = async e => {
+      e.preventDefault();
+      const q = $('gQ').value.trim(); if (!q) return;
+      const box = $('gRes'); box.hidden = false;
+      box.innerHTML = '<button class="btn icon ghost close" type="button" title="Закрити">✕</button>';
+      box.querySelector('.close').onclick = () => box.hidden = true;
+      for (const [k, name, tab] of kinds) {
+        const sec = document.createElement('div');
+        sec.innerHTML = `<div class="gh"><b></b><span class="dim">⏳</span><button class="btn ghost" type="button">Більше →</button></div><div class="row${wide(k) ? ' yt' : ''}"></div>`;
+        sec.querySelector('b').textContent = name;
+        sec.querySelector('.btn').onclick = () => { setType(tab); const sb = document.querySelector(`.search[data-target="${tab}"]`); sb && sb._setQuery(q, k); sb && sb.scrollIntoView({ behavior: 'smooth', block: 'center' }); };
+        box.appendChild(sec);
+        fetchSearch(k, q).then(r => {
+          const row = sec.querySelector('.row');
+          sec.querySelector('.dim').textContent = r.results.length ? r.source + (r.hidden ? ` · 🚫 ${r.hidden}` : '') : 'нічого';
+          if (!r.results.length) { row.outerHTML = '<div class="msg">Нічого не знайдено</div>'; return; }
+          for (const it of r.results.slice(0, 14)) row.appendChild(tile(it, k, () => pickResult(it, k)));
+        }).catch(er => { sec.querySelector('.dim').textContent = '⚠️ ' + er.message; sec.querySelector('.row').remove(); });
+      }
+    };
+  }
+
+  // ── перетягування картинок/посилань з інших вкладок (Google, сайти) ──
+  function urlFromDrop(dt) {
+    const list = (dt.getData('text/uri-list') || '').split('\n').map(x => x.trim()).filter(x => x && !x.startsWith('#'));
+    const html = dt.getData('text/html');
+    const imgSrc = html && (html.match(/<img[^>]+src="([^"]+)"/i) || [])[1];
+    let u = (imgSrc && /^https?:/.test(imgSrc)) ? imgSrc.replace(/&amp;/g, '&') : (list[0] || dt.getData('text/plain') || '').trim();
+    // посилання Google «imgres» → справжня картинка
+    try { const x = new URL(u); if (x.hostname.includes('google.') && x.searchParams.get('imgurl')) u = x.searchParams.get('imgurl'); } catch {}
+    return /^https?:\/\//i.test(u) ? u : '';
+  }
+  function dropUrl(u) {
+    let target = /youtu\.?be|twitch\.tv|vimeo\.com|tiktok\.com|streamable\.com|\.(mp4|webm|mov)(\?|$)/i.test(u) ? 'video'
+      : /\.(mp3|ogg|wav|m4a|flac)(\?|$)/i.test(u) ? 'audio'
+      : /\.gif(\?|$)|giphy\.com|tenor\.com/i.test(u) ? 'gif'
+      : /\.(png|jpe?g|webp|avif|bmp)(\?|$)|encrypted-tbn|googleusercontent|bing\.net\/th/i.test(u) ? 'image'
+      : ['image', 'gif', 'video', 'audio', 'article'].includes(type) ? type : 'article';
+    setType(target);
+    if (files[target]) setFile(target, null, true);
+    const inp = document.querySelector(`[data-url="${target}"]`);
+    inp.value = u; inp.dispatchEvent(new Event('input'));
+    toast('✓ Посилання вставлено');
   }
 
   // ═════ улюблене ═════
@@ -868,6 +1014,7 @@
 
   // ═════ звук сповіщення ═════
   function initNotify() {
+    $('filterRu').onchange = e => api('/api/settings', { json: { filterRu: e.target.checked } }).then(() => toast(e.target.checked ? '🚫 Російський контент приховано' : 'Фільтр вимкнено')).catch(er => toast(er.message, true));
     const save = () => api('/api/settings', { json: { notify: { where: $('nWhere').value, sound: $('nSound').value, volume: +$('nVol').value } } }).catch(er => toast(er.message, true));
     $('nWhere').onchange = save; $('nSound').onchange = () => { save(); MDRender.chime($('nSound').value, +$('nVol').value); };
     $('nVol').oninput = () => $('nVolOut').textContent = $('nVol').value;

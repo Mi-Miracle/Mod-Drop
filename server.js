@@ -13,6 +13,8 @@ const cookieSession = require('cookie-session');
 const multer = require('multer');
 const { Store } = require('./lib/store');
 const updater = require('./lib/updater');
+const rufilter = require('./lib/rufilter');
+const search = require('./lib/search');
 const { safeHttpUrl, parseTime, detectEmbed, fetchPreview, clamp } = require('./lib/media');
 
 const PORT = Number(process.env.PORT) || 3000;
@@ -43,6 +45,7 @@ const DEFAULTS = () => ({
   favorites: [],
   giphyKey: '',
   notify: { where: 'overlay', sound: 'chime', volume: 70 },
+  filterRu: true,   // приховувати російський контент у пошуку
 });
 
 // ───────────────────────── Runtime-стан ─────────────────────────
@@ -76,6 +79,7 @@ function sanitizeConfig(input, base) {
   if (c.sessionSecret.length < 16) c.sessionSecret = rand(32);
   c.defaultCooldown = Math.min(3600, Math.max(0, Math.round(Number(c.defaultCooldown ?? 5)) || 0));
   c.users = sanitizeUsers(c.users);
+  c.filterRu = c.filterRu !== false;
   c.giphyKey = String(c.giphyKey || '').trim().replace(/[^A-Za-z0-9]/g, '').slice(0, 64);
   c.favorites = (Array.isArray(c.favorites) ? c.favorites : []).filter(f => f && typeof f === 'object' && TYPES.includes(f.type) && f.fid).slice(0, 100);
   const n = c.notify && typeof c.notify === 'object' ? c.notify : {};
@@ -238,7 +242,7 @@ function broadcastOverlay(event, data) { for (const c of overlayClients) sse(c, 
 function publicState() {
   return {
     enabled: state.enabled, current: state.current, history: state.history, overlays: overlayClients.size,
-    favorites: cfg ? cfg.favorites : [], notify: cfg ? cfg.notify : null,
+    favorites: cfg ? cfg.favorites : [], notify: cfg ? cfg.notify : null, filterRu: cfg ? cfg.filterRu : true,
   };
 }
 function broadcastPanels() { const s = publicState(); for (const c of panelClients.keys()) sse(c, 'state', s); }
@@ -745,7 +749,7 @@ app.post('/api/resolve', requireUser, async (req, res) => {
   }
   const embed = detectEmbed(url);
   if (type === 'audio' && embed && embed.kind !== 'youtube') return res.json({ error: 'Для аудіо підтримується YouTube або пряме посилання на файл' });
-  const info = embed && embed.kind === 'youtube' ? await youtubeInfo(embed.id) : {};
+  const info = embed && embed.kind === 'youtube' ? await youtubeInfo(embed.id) : embed && embed.kind === 'twitchclip' ? await clipInfo(embed.id) : {};
   res.json({ embed, info });
 });
 
@@ -786,6 +790,7 @@ app.post('/api/toggle', requireUser, requireBroadcaster, (req, res) => {
 app.post('/api/settings', requireUser, requireBroadcaster, async (req, res) => {
   const b = req.body || {};
   if (b.defaultCooldown != null) cfg.defaultCooldown = Math.min(3600, Math.max(0, Math.round(+b.defaultCooldown) || 0));
+  if (typeof b.filterRu === 'boolean') { cfg.filterRu = b.filterRu; searchCache.clear(); }
   if (b.notify && typeof b.notify === 'object') cfg.notify = sanitizeConfig({ notify: { ...cfg.notify, ...b.notify } }, cfg).notify;
   broadcastPanels();
   persistSoon(); notifyMods();
@@ -827,98 +832,79 @@ app.post('/api/favorites/:fid/send', requireUser, (req, res) => {
 // ═════ Пошук (проксі, щоб не було CORS і ключі не світились у браузері) ═════
 const searchCache = new Map();
 const lastSearch = new Map();
-const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36';
+const KINDS = ['image', 'gif', 'youtube', 'clips'];
 app.get('/api/search', requireUser, async (req, res) => {
   const kind = String(req.query.kind || '');
   const q = String(req.query.q || '').trim().slice(0, 120);
-  if (!['image', 'gif', 'youtube'].includes(kind)) return res.status(400).json({ error: 'kind' });
-  if (!q && kind !== 'gif') return res.json({ results: [] });
+  const p = Math.min(9, Math.max(0, parseInt(req.query.p, 10) || 0));
+  if (!KINDS.includes(kind)) return res.status(400).json({ error: 'kind' });
+  if (!q && (kind === 'image' || kind === 'youtube')) return res.json({ results: [], more: false });
   const now = Date.now();
-  if (now - (lastSearch.get(req.user.login) || 0) < 700) return res.status(429).json({ error: 'Не так швидко 🙂' });
-  lastSearch.set(req.user.login, now);
-  const key = kind + '|' + q.toLowerCase();
+  const k2 = req.user.login + kind;
+  if (now - (lastSearch.get(k2) || 0) < 400) return res.status(429).json({ error: 'Не так швидко 🙂' });
+  lastSearch.set(k2, now);
+  const key = [kind, cfg.filterRu ? 'f' : '', p, q.toLowerCase()].join('|');
   const hit = searchCache.get(key);
   if (hit && now - hit.t < 10 * 60 * 1000) return res.json(hit.v);
-  try {
-    let v;
-    if (kind === 'youtube') v = { results: await searchYouTube(q), source: 'YouTube' };
-    else if (kind === 'gif' && cfg.giphyKey) v = { results: await searchGiphy(q), source: 'GIPHY' };
-    else v = { results: await searchBing(q, kind === 'gif'), source: 'Bing' };
-    searchCache.set(key, { t: now, v });
-    if (searchCache.size > 300) searchCache.delete(searchCache.keys().next().value);
-    res.json(v);
-  } catch (e) {
-    console.warn('search', kind, e.message);
-    res.status(502).json({ error: 'Пошук зараз не відповідає, спробуй ще раз' });
+
+  const jobs = []; // [назва, promise]
+  if (kind === 'image') { jobs.push(['Bing', search.bing(q, p, false)]); jobs.push(['DuckDuckGo', search.ddg(q, p, false)]); }
+  if (kind === 'gif') {
+    const gq = q || 'reaction';
+    if (cfg.giphyKey) jobs.push(['GIPHY', search.giphy(q, p, cfg.giphyKey)]);
+    jobs.push(['DuckDuckGo', search.ddg(gq + ' gif', p, true)]);
+    jobs.push(['Bing', search.bing(gq, p, true)]);
   }
+  if (kind === 'youtube') jobs.push(['YouTube', search.youtube(q, p)]);
+  if (kind === 'clips') {
+    jobs.push(['Twitch', (async () => {
+      const H = await appHeaders();
+      if (!H) throw new Error('Twitch-ключі не налаштовано');
+      return search.filterClips(await search.channelClips(cfg.channel, H, twitchUsers), q, p);
+    })()]);
+  }
+  const settled = await Promise.allSettled(jobs.map(j => j[1]));
+  const ok = [], failed = [], lists = [];
+  settled.forEach((r, i) => {
+    if (r.status === 'fulfilled') { ok.push(jobs[i][0]); lists.push(r.value); }
+    else { failed.push(jobs[i][0]); console.warn('search', jobs[i][0], r.reason && r.reason.message); }
+  });
+  if (!ok.length) {
+    const why = settled[0].reason && settled[0].reason.message;
+    const msg = kind === 'clips' && why && why !== 'fetch failed' ? why : kind === 'clips' ? 'Немає зв\'язку з Twitch' : 'Пошук зараз не відповідає, спробуй ще раз';
+    return res.status(502).json({ error: msg });
+  }
+  let results = search.interleave(lists);
+  const rawCount = results.length;
+  let hidden = 0;
+  if (cfg.filterRu && kind !== 'clips') {
+    const f = rufilter.filterResults(results, { urls: ['url', 'page'], texts: ['title', 'channel', 'user'] });
+    results = f.results; hidden = f.hidden;
+  }
+  const v = { results: results.slice(0, 60), hidden, source: ok.join(' + '), failed, more: rawCount >= (kind === 'clips' ? 40 : 15) };
+  searchCache.set(key, { t: now, v });
+  if (searchCache.size > 400) searchCache.delete(searchCache.keys().next().value);
+  res.json(v);
 });
-
-async function searchGiphy(q) {
-  const u = new URL(q ? 'https://api.giphy.com/v1/gifs/search' : 'https://api.giphy.com/v1/gifs/trending');
-  u.searchParams.set('api_key', cfg.giphyKey); u.searchParams.set('limit', '30'); u.searchParams.set('rating', 'pg-13');
-  if (q) { u.searchParams.set('q', q); u.searchParams.set('lang', 'uk'); }
-  const r = await fetch(u, { signal: AbortSignal.timeout(8000) });
-  if (!r.ok) throw new Error('giphy ' + r.status);
-  const j = await r.json();
-  return j.data.map(g => ({
-    url: g.images.original.url.split('?')[0],
-    thumb: (g.images.fixed_width_downsampled || g.images.fixed_width || g.images.original).url,
-    title: g.title || '', w: +g.images.original.width, h: +g.images.original.height,
-  })).filter(x => x.url);
-}
-
-async function searchBing(q, animated) {
-  if (!q) q = 'funny reaction';
-  const u = new URL('https://www.bing.com/images/async');
-  u.searchParams.set('q', q); u.searchParams.set('first', '0'); u.searchParams.set('count', '35'); u.searchParams.set('mmasync', '1');
-  u.searchParams.set('adlt', 'moderate');
-  if (animated) u.searchParams.set('qft', '+filterui:photo-animatedgif');
-  const r = await fetch(u, { headers: { 'User-Agent': UA, 'Accept-Language': 'uk,en;q=0.8' }, signal: AbortSignal.timeout(9000) });
-  if (!r.ok) throw new Error('bing ' + r.status);
-  const html = await r.text();
-  const out = [];
-  for (const m of html.matchAll(/\sm="(\{[^"]+\})"/g)) {
-    try {
-      const j = JSON.parse(m[1].replace(/&quot;/g, '"').replace(/&amp;/g, '&'));
-      const url = safeHttpUrl(j.murl);
-      if (!url || !/^https:/.test(url)) continue;
-      out.push({ url, thumb: safeHttpUrl(j.turl) || url, title: clamp(j.t, 120) });
-    } catch {}
-    if (out.length >= 30) break;
-  }
-  return out;
-}
-
-async function searchYouTube(q) {
-  const u = new URL('https://www.youtube.com/results');
-  u.searchParams.set('search_query', q); u.searchParams.set('hl', 'uk');
-  const r = await fetch(u, { headers: { 'User-Agent': UA, 'Accept-Language': 'uk,en;q=0.8', Cookie: 'CONSENT=YES+1; SOCS=CAI' }, signal: AbortSignal.timeout(9000) });
-  if (!r.ok) throw new Error('yt ' + r.status);
-  const html = await r.text();
-  const m = html.match(/var ytInitialData\s*=\s*(\{.+?\});\s*<\/script>/s) || html.match(/ytInitialData"\]\s*=\s*(\{.+?\});/s);
-  if (!m) throw new Error('yt: no data');
-  const data = JSON.parse(m[1]);
-  const out = [];
-  (function walk(o) {
-    if (!o || typeof o !== 'object' || out.length >= 24) return;
-    if (o.videoRenderer && o.videoRenderer.videoId) {
-      const v = o.videoRenderer;
-      const runs = x => (x && (x.simpleText || (x.runs || []).map(r => r.text).join(''))) || '';
-      out.push({
-        url: 'https://www.youtube.com/watch?v=' + v.videoId, id: v.videoId,
-        thumb: `https://i.ytimg.com/vi/${v.videoId}/mqdefault.jpg`,
-        title: clamp(runs(v.title), 140), channel: clamp(runs(v.ownerText), 80), duration: runs(v.lengthText),
-      });
-      return;
-    }
-    for (const k in o) walk(o[k]);
-  })(data);
-  return out;
-}
 
 app.post('/api/history/clear', requireUser, requireBroadcaster, (req, res) => { state.history = []; broadcastPanels(); res.json({ ok: true }); });
 
 class UserError extends Error {}
+
+const clipCache = new Map();
+async function clipInfo(id) {
+  if (clipCache.has(id)) return clipCache.get(id);
+  try {
+    const H = await appHeaders(); if (!H) return {};
+    const r = await fetch('https://api.twitch.tv/helix/clips?id=' + encodeURIComponent(id), { headers: H, signal: AbortSignal.timeout(6000) });
+    if (!r.ok) return {};
+    const c = (await r.json()).data[0];
+    if (!c) return {};
+    const v = { title: clamp(c.title, 140), author: c.broadcaster_name, duration: c.duration };
+    clipCache.set(id, v);
+    return v;
+  } catch { return {}; }
+}
 
 const ytCache = new Map();
 async function youtubeInfo(id) {
@@ -983,7 +969,13 @@ async function buildItem(req) {
     const embed = detectEmbed(url);
     if (embed) {
       if (o.start) embed.start = o.start;
-      return { ...base, ...o, embed, duration: !embed.endEvent && !duration ? NO_END_EVENT_DEFAULT : duration };
+      let dur = duration;
+      if (!embed.endEvent && !dur) {
+        // у кліпа Twitch знаємо точну тривалість — показуємо рівно стільки
+        const ci = embed.kind === 'twitchclip' ? await clipInfo(embed.id) : {};
+        dur = ci.duration ? Math.ceil(ci.duration) + 2 : NO_END_EVENT_DEFAULT;
+      }
+      return { ...base, ...o, embed, duration: dur };
     }
     return { ...base, ...o, src: url };
   }
