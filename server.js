@@ -775,12 +775,12 @@ app.post('/api/show', requireUser, (req, res) => {
 });
 
 app.post('/api/hide', requireUser, (req, res) => { hideCurrent('manual'); res.json({ ok: true }); });
-app.post('/api/reshow/:id', requireUser, (req, res) => {
+app.post('/api/reshow/:id', requireUser, async (req, res) => {
   try { canSend(req.user); } catch (e) { return res.status(400).json({ error: e.message }); }
   const item = state.history.find(i => i.id === req.params.id);
   if (!item) return res.status(404).json({ error: 'Не знайдено' });
   markSent(req.user);
-  showItem(item); res.json({ ok: true });
+  showItem(await freshen(item)); res.json({ ok: true });
 });
 app.post('/api/toggle', requireUser, requireBroadcaster, (req, res) => {
   state.enabled = !!(req.body || {}).enabled;
@@ -817,12 +817,12 @@ app.delete('/api/favorites/:fid', requireUser, (req, res) => {
   persistSoon(); broadcastPanels();
   res.json({ ok: true });
 });
-app.post('/api/favorites/:fid/send', requireUser, (req, res) => {
+app.post('/api/favorites/:fid/send', requireUser, async (req, res) => {
   const f = cfg.favorites.find(x => x.fid === req.params.fid);
   if (!f) return res.status(404).json({ error: 'Не знайдено' });
   try { canSend(req.user); } catch (e) { return res.status(400).json({ error: e.message }); }
   const { fid, savedBy, savedAt, ...item } = f;
-  const fresh = { ...item, id: crypto.randomBytes(6).toString('hex'), by: { login: req.user.login, name: req.user.name, avatar: req.user.avatar }, createdAt: Date.now() };
+  const fresh = await freshen({ ...item, id: crypto.randomBytes(6).toString('hex'), by: { login: req.user.login, name: req.user.name, avatar: req.user.avatar }, createdAt: Date.now() });
   markSent(req.user);
   state.history.unshift(fresh); state.history = state.history.slice(0, 30);
   showItem(fresh);
@@ -909,6 +909,38 @@ app.post('/api/history/clear', requireUser, requireBroadcaster, (req, res) => { 
 class UserError extends Error {}
 
 const clipCache = new Map();
+// Прямий MP4 кліпу (через публічний GraphQL Twitch, як у самого плеєра Twitch). Посилання підписане й тимчасове.
+const TWITCH_WEB_CLIENT = 'kimne78kx3ncx6brgo4mv6wki5h1ko';
+const clipMp4Cache = new Map();
+async function clipMp4(slug) {
+  const hit = clipMp4Cache.get(slug);
+  if (hit && Date.now() - hit.t < 20 * 60 * 1000) return hit.url;
+  try {
+    const r = await fetch('https://gql.twitch.tv/gql', {
+      method: 'POST', signal: AbortSignal.timeout(6000),
+      headers: { 'Client-Id': TWITCH_WEB_CLIENT, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ operationName: 'VideoAccessToken_Clip', variables: { slug },
+        extensions: { persistedQuery: { version: 1, sha256Hash: '36b89d2507fce29e5ca551df756d27c1cfe079e2609642b4390aa4c35796eb11' } } }),
+    });
+    if (!r.ok) return '';
+    const c = ((await r.json()).data || {}).clip;
+    const q = c && (c.videoQualities || []).find(x => +x.quality <= 1080);
+    if (!q || !c.playbackAccessToken) return '';
+    const url = q.sourceURL + '?sig=' + c.playbackAccessToken.signature + '&token=' + encodeURIComponent(c.playbackAccessToken.value);
+    clipMp4Cache.set(slug, { t: Date.now(), url });
+    if (clipMp4Cache.size > 300) clipMp4Cache.delete(clipMp4Cache.keys().next().value);
+    return url;
+  } catch { return ''; }
+}
+// для повторного показу (історія/улюблене): підпис посилання міг застаріти — беремо свіжий
+async function freshen(item) {
+  if (item.type !== 'video' || !item.embed || item.embed.kind !== 'twitchclip') return item;
+  const mp4 = await clipMp4(item.embed.id);
+  if (mp4) return { ...item, src: mp4, direct: true };
+  const { src, direct, ...rest } = item;
+  return { ...rest, duration: item.duration || NO_END_EVENT_DEFAULT };
+}
+
 async function clipInfo(id) {
   if (clipCache.has(id)) return clipCache.get(id);
   try {
@@ -986,6 +1018,11 @@ async function buildItem(req) {
     const embed = detectEmbed(url);
     if (embed) {
       if (o.start) embed.start = o.start;
+      // Twitch-кліп граємо прямим MP4 — як звичайне відео: стартує сам, зі звуком, і ховається, коли закінчиться
+      if (embed.kind === 'twitchclip') {
+        const mp4 = await clipMp4(embed.id);
+        if (mp4) return { ...base, ...o, embed, src: mp4, direct: true, duration };
+      }
       let dur = duration;
       if (!embed.endEvent && !dur) {
         // у кліпа Twitch знаємо точну тривалість — показуємо рівно стільки

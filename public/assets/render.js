@@ -90,8 +90,9 @@
     }
 
     // ── відео ──
-    else if (item.type === 'video' && item.embed && reuse) slot(body);
-    else if (item.type === 'video' && item.embed) {
+    // embed-плеєр лише коли немає прямого файлу (Twitch-кліп з direct грає як звичайне відео)
+    else if (item.type === 'video' && item.embed && !item.direct && reuse) slot(body);
+    else if (item.type === 'video' && item.embed && !item.direct) {
       const e = item.embed;
       const box = el('div', 'md-embed' + (e.kind === 'tiktok' ? ' vertical' : ''));
       body.appendChild(box); mediaNode = box;
