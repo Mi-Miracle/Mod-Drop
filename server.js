@@ -848,12 +848,22 @@ app.get('/api/search', requireUser, async (req, res) => {
   if (hit && now - hit.t < 10 * 60 * 1000) return res.json(hit.v);
 
   const jobs = []; // [назва, promise]
-  if (kind === 'image') { jobs.push(['Bing', search.bing(q, p, false)]); jobs.push(['DuckDuckGo', search.ddg(q, p, false)]); }
+  // картинки й GIF — паралельно мовою запиту та англійською (див. lib/search.js → toEnglish)
+  const en = (kind === 'image' || kind === 'gif') ? await search.toEnglish(q) : '';
+  if (kind === 'image') {
+    // Bing — по 2 сторінки на кожну мову (він не блокує), DuckDuckGo — як доповнення
+    for (const qq of [q, en].filter(Boolean)) {
+      jobs.push(['Bing', search.bing(qq, p * 2, false)]);
+      jobs.push(['Bing', search.bing(qq, p * 2 + 1, false)]);
+    }
+    jobs.push(['DuckDuckGo', search.ddg(en || q, p, false)]);
+  }
   if (kind === 'gif') {
     const gq = q || 'reaction';
-    if (cfg.giphyKey) jobs.push(['GIPHY', search.giphy(q, p, cfg.giphyKey)]);
-    jobs.push(['DuckDuckGo', search.ddg(gq + ' gif', p, true)]);
+    if (cfg.giphyKey) jobs.push(['GIPHY', search.giphy(en || q, p, cfg.giphyKey)]);
+    jobs.push(['DuckDuckGo', search.ddg((en || gq) + ' gif', p, true)]);
     jobs.push(['Bing', search.bing(gq, p, true)]);
+    if (en) jobs.push(['Bing', search.bing(en, p, true)]);
   }
   if (kind === 'youtube') jobs.push(['YouTube', search.youtube(q, p)]);
   if (kind === 'music') {
@@ -887,7 +897,8 @@ app.get('/api/search', requireUser, async (req, res) => {
     const f = rufilter.filterResults(results, { urls: ['url', 'page'], texts: ['title', 'channel', 'user'] });
     results = f.results; hidden = f.hidden;
   }
-  const v = { results: kind === 'clips' ? results : results.slice(0, 60), total: results.length, hidden, source: ok.join(' + '), failed, more: kind !== 'clips' && rawCount >= 15 };
+  const uniq = a => [...new Set(a)];
+  const v = { results: kind === 'clips' ? results : results.slice(0, 80), total: results.length, hidden, translated: en, source: uniq(ok).join(' + '), failed: uniq(failed).filter(f => !ok.includes(f)), more: kind !== 'clips' && rawCount >= 15 };
   searchCache.set(key, { t: now, v });
   if (searchCache.size > 400) searchCache.delete(searchCache.keys().next().value);
   res.json(v);

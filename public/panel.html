@@ -300,7 +300,6 @@
             <div class="section-h">Відтворення</div>
             <div class="grid2">
               <div><label class="lbl">Почати з (хв:сек)</label><input class="input" data-opt="video.start" placeholder="0:00"></div>
-              <div><label class="lbl">Гучність</label><div class="vol"><input type="range" min="0" max="100" value="100" data-opt="video.volume"><output>100</output></div></div>
             </div>
             <div class="row-switch"><div class="t"><b>Без звуку</b><span>Відео піде беззвучно</span></div><label class="switch"><input type="checkbox" data-opt="video.muted"><span></span></label></div>
           </div>
@@ -319,7 +318,6 @@
             <div class="hint">Назва і виконавець підтягуються з тегів MP3 або з YouTube. Можна змінити вручну.</div>
             <div class="grid2">
               <div><label class="lbl">Почати з (хв:сек)</label><input class="input" data-opt="audio.start" placeholder="0:00"></div>
-              <div><label class="lbl">Гучність</label><div class="vol"><input type="range" min="0" max="100" value="80" data-opt="audio.volume"><output>80</output></div></div>
             </div>
           </div>
 
@@ -787,7 +785,7 @@
       return { ...f, id: 'preview', by: base.by };
     }
     if (t === 'video' || t === 'audio') {
-      const o = { start: parseTime(opt(t + '.start')), volume: +opt(t + '.volume'), muted: t === 'video' ? opt('video.muted') : false };
+      const o = { start: parseTime(opt(t + '.start')), volume: 100, muted: t === 'video' ? opt('video.muted') : false };
       const extra = t === 'audio' ? { title: opt('audio.title').trim() || (files.audio ? files.audio.name.replace(/\.[^.]+$/, '') : ''), artist: opt('audio.artist').trim() } : {};
       if (files[t]) { setDetect(t, ''); return { ...base, ...o, ...extra, src: blobUrls[t] }; }
       const u = urlOf(t);
@@ -939,7 +937,7 @@
         if (!append) res.innerHTML = '';
         if (!r.results.length && !append) { res.innerHTML = `<div class="msg">Нічого не знайдено 🤷${r.hidden ? ` (приховано російських: ${r.hidden})` : ''}</div>`; return; }
         for (const it of r.results) res.appendChild(tile(it, kind, b => { $$('.r.sel', res).forEach(x => x.classList.remove('sel')); b.classList.add('sel'); pickResult(it, kind, target); }));
-        src.textContent = (kind === 'clips' ? `Кліпів: ${r.total} · спочатку новіші · ` : '') + 'Джерела: ' + r.source + (r.failed && r.failed.length ? ` · не відповіли: ${r.failed.join(', ')}` : '') + (r.hidden ? ` · 🚫 приховано російських: ${r.hidden}` : '');
+        src.textContent = (kind === 'clips' ? `Кліпів: ${r.total} · спочатку новіші · ` : '') + (r.translated ? `шукаю ще й англійською: «${r.translated}» · ` : '') + 'Джерела: ' + r.source + (r.failed && r.failed.length && !r.results.length ? ` · не відповіли: ${r.failed.join(', ')}` : '') + (r.hidden ? ` · 🚫 приховано російських: ${r.hidden}` : '');
         more.hidden = !r.more;
       } catch (e) { if (my === seq) { if (!append) res.innerHTML = ''; res.insertAdjacentHTML('beforeend', `<div class="msg">⚠️ ${esc(e.message)}</div>`); } }
     }
@@ -1271,7 +1269,7 @@
       else fd.append('url', urlOf(type));
       if (type === 'video' || type === 'audio') {
         fd.append('start', parseTime(opt(type + '.start')));
-        fd.append('volume', opt(type + '.volume'));
+        fd.append('volume', '100');
         if (type === 'video') fd.append('muted', opt('video.muted') ? '1' : '0');
         if (type === 'audio') { fd.append('title', opt('audio.title')); fd.append('artist', opt('audio.artist')); }
       }
