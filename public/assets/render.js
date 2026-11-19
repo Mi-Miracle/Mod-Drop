@@ -226,6 +226,41 @@
     }
 
     // ── стаття ──
+    else if (item.type === 'article' && item.shot) {
+      // сторінка «як є»: знімок у рамці браузера, що плавно гортається вниз
+      const a = el('div', 'md-page');
+      const bar = el('div', 'md-page-bar');
+      bar.appendChild(el('span', 'dots'));
+      let host = item.site || ''; try { host = new URL(item.url).hostname.replace(/^www\./, ''); } catch {}
+      bar.appendChild(el('span', 'addr', '🔒 ' + host));
+      if (item.title) bar.appendChild(el('span', 'ttl', item.title));
+      const view = el('div', 'md-page-view');
+      const img = el('img'); img.alt = ''; img.decoding = 'async';
+      if (item.shotW && item.shotH) view.style.setProperty('--ratio', item.shotH / item.shotW);
+      view.appendChild(img); a.append(bar, view); body.appendChild(a);
+      let anim = null;
+      const start = () => {
+        const dist = img.offsetHeight - view.clientHeight;
+        if (dist <= 4) return;
+        const dur = (item.duration > 0 ? item.duration : 30) * 1000;
+        const hold = Math.min(2500, dur * .15);
+        // ~110 px/с, але встигнути донизу до кінця показу
+        const scroll = Math.max(1500, Math.min(dist / 110 * 1000, dur - hold * 2));
+        const total = preview ? hold * 2 + scroll * 2 : dur;
+        const kf = preview
+          ? [{ transform: 'translateY(0)', offset: 0 }, { transform: 'translateY(0)', offset: hold / total },
+             { transform: `translateY(${-dist}px)`, offset: (hold + scroll) / total }, { transform: `translateY(${-dist}px)`, offset: (hold * 2 + scroll) / total },
+             { transform: 'translateY(0)', offset: 1 }]
+          : [{ transform: 'translateY(0)', offset: 0 }, { transform: 'translateY(0)', offset: Math.min(.9, hold / total) },
+             { transform: `translateY(${-dist}px)`, offset: Math.min(.98, (hold + scroll) / total) }, { transform: `translateY(${-dist}px)`, offset: 1 }];
+        anim = img.animate(kf, { duration: total, easing: 'linear', fill: 'forwards', iterations: preview ? Infinity : 1 });
+        if (!preview && item.shownAt) anim.currentTime = Math.min(total, Math.max(0, Date.now() - item.shownAt));
+      };
+      img.onload = () => requestAnimationFrame(() => requestAnimationFrame(start));
+      img.src = item.shot;
+      cleanups.push(() => { if (anim) anim.cancel(); });
+    }
+
     else if (item.type === 'article') {
       const a = el('div', 'md-article');
       if (item.image) { const c = el('img', 'cover'); c.src = item.image; c.onerror = () => c.remove(); a.appendChild(c); }
