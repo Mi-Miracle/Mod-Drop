@@ -45,11 +45,18 @@
   };
   const ORIGIN = { tl: ['0%', '0%'], tr: ['100%', '0%'], bl: ['0%', '100%'], br: ['100%', '100%'], left: ['0%', '50%'], right: ['100%', '50%'], top: ['50%', '0%'], bottom: ['50%', '100%'], center: ['50%', '50%'] };
   const FX = ['slide', 'pop', 'flip', 'zoom', 'reveal', 'glitch', 'none'];
-  function applyFx(card, fx, pos) {
+  // своє місце (перетягнуте мишкою): ефект іде від найближчого краю
+  function customSide(cx, cy) {
+    const m = Math.min(cx, 1 - cx, cy, 1 - cy);
+    if (m > .3) return 'center';
+    return m === cx ? 'left' : m === 1 - cx ? 'right' : m === cy ? 'top' : 'bottom';
+  }
+  function applyFx(card, fx, pos, side) {
     let f = FX.includes(fx) ? fx : 'auto';
-    if (f === 'auto') f = pos === 'center' ? 'pop' : 'slide';
+    const p = pos === 'custom' ? side : pos;
+    if (f === 'auto') f = p === 'center' ? 'pop' : 'slide';
     card.classList.add('fx-' + f);
-    const d = DIR[pos] || DIR.center, o = ORIGIN[pos] || ORIGIN.center;
+    const d = DIR[p] || DIR.center, o = pos === 'custom' ? ORIGIN.center : (ORIGIN[p] || ORIGIN.center);
     card.style.setProperty('--fx-x', d[0]); card.style.setProperty('--fx-y', d[1]);
     card.style.setProperty('--fx-ox', o[0]); card.style.setProperty('--fx-oy', o[1]);
   }
@@ -70,8 +77,17 @@
     const slot = parent => { placeholder = el('div'); parent.appendChild(placeholder); };
 
     const card = el('div', `md-card size-${item.size || 'm'} t-${item.type}`);
-    if (opts.cardScale) card.style.setProperty('--card-scale', opts.cardScale);
-    applyFx(card, item.fx, pos);
+    const sc = (opts.cardScale || 1) * (item.scale > 0 ? item.scale : 1);
+    if (sc !== 1) card.style.setProperty('--card-scale', sc);
+    // своє місце: «якір» стоїть у точці (cx, cy) — це центр картки; масштаб і анімації рахуються від центру
+    let anchor = null;
+    if (pos === 'custom') {
+      anchor = el('div', 'md-anchor');
+      anchor.style.left = ((item.cx ?? .5) * 1920) + 'px';
+      anchor.style.top = ((item.cy ?? .5) * 1080) + 'px';
+      anchor.appendChild(card);
+    }
+    applyFx(card, item.fx, pos, customSide(item.cx ?? .5, item.cy ?? .5));
 
     const head = el('div', 'md-head');
     if (item.by && item.by.avatar) { const a = el('img'); a.src = item.by.avatar; a.onerror = () => a.remove(); head.appendChild(a); }
@@ -227,7 +243,7 @@
       card.appendChild(bar);
     }
 
-    stage.appendChild(card);
+    stage.appendChild(anchor || card);
     if (reuse && placeholder) {
       const node = reuse.mediaNode;
       // moveBefore зберігає стан iframe/відео (Chrome 133+); інакше — звичайне перенесення
@@ -240,11 +256,12 @@
     } else if (opts.reuse && opts.reuse !== reuse) opts.reuse.destroy();
     olds.forEach(o => o.remove());
     return {
-      el: card, mediaKey: mk, mediaNode, _cleanups: cleanups,
+      el: card, root: anchor || card, mediaKey: mk, mediaNode, _cleanups: cleanups,
       destroy(animated) {
         cleanups.forEach(f => { try { f(); } catch {} });
-        if (animated) { card.classList.add('out'); setTimeout(() => card.remove(), 500); }
-        else card.remove();
+        const root = anchor || card;
+        if (animated) { card.classList.add('out'); setTimeout(() => root.remove(), 500); }
+        else root.remove();
       },
     };
   }

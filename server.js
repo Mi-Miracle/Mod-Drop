@@ -976,10 +976,11 @@ async function youtubeInfo(id) {
   } catch { return {}; }
 }
 
-const SIZES = ['s', 'm', 'l', 'xl'];
-const POSITIONS = ['auto', 'center', 'left', 'right', 'top', 'bottom', 'tl', 'tr', 'bl', 'br'];
+const SIZES = ['xs', 's', 'm', 'l', 'xl', 'xxl'];
+const POSITIONS = ['auto', 'center', 'left', 'right', 'top', 'bottom', 'tl', 'tr', 'bl', 'br', 'custom'];
 const EFFECTS = ['auto', 'slide', 'pop', 'flip', 'zoom', 'reveal', 'glitch', 'none'];
 const NO_END_EVENT_DEFAULT = 60;
+const clampNum = (v, min, max, def) => { const n = Number(v); return Number.isFinite(n) ? Math.min(max, Math.max(min, Math.round(n * 1000) / 1000)) : def; };
 
 async function buildItem(req) {
   const b = req.body || {};
@@ -997,6 +998,9 @@ async function buildItem(req) {
     size: SIZES.includes(b.size) ? b.size : 'm',
     pos: POSITIONS.includes(b.pos) ? b.pos : 'auto',
     fx: EFFECTS.includes(b.fx) ? b.fx : 'auto',
+    // своє місце (перетягнуте в передпоказі): центр картки в частках екрана + масштаб розтягуванням
+    ...(b.pos === 'custom' ? { cx: clampNum(b.cx, 0, 1, .5), cy: clampNum(b.cy, 0, 1, .5) } : {}),
+    scale: clampNum(b.scale, 0.2, 4, 1),
     createdAt: Date.now(),
   };
   const mediaOpts = () => ({

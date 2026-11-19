@@ -9,6 +9,10 @@
 }
 /* усі позиції, крім центру, — впритул до краю */
 .md-stage:not(.pos-center) { padding: 0; }
+/* своє місце: якір у центрі картки */
+.md-stage.pos-custom { display: block; }
+.md-anchor { position: absolute; width: 0; height: 0; display: flex; align-items: center; justify-content: center; }
+.md-anchor > .md-card { flex: none; }
 .md-stage.pos-left   { justify-content: flex-start; }
 .md-stage.pos-right  { justify-content: flex-end; }
 .md-stage.pos-top    { align-items: flex-start; }
@@ -39,10 +43,12 @@
   animation: mdPop .55s cubic-bezier(.22, 1.2, .36, 1) both;
 }
 .md-card.t-audio { --glow: rgba(61, 139, 255, .3); }
+.md-card.size-xs { --mw: 540px;  --mh: 400px; --fs: 24px; }
 .md-card.size-s  { --mw: 760px;  --mh: 540px; --fs: 30px; }
 .md-card.size-m  { --mw: 1100px; --mh: 760px; --fs: 38px; }
 .md-card.size-l  { --mw: 1500px; --mh: 940px; --fs: 46px; }
 .md-card.size-xl { --mw: 1800px; --mh: 990px; --fs: 54px; }
+.md-card.size-xxl { --mw: 1920px; --mh: 1080px; --fs: 62px; }
 
 /* ═════ Ефекти появи (transform + opacity) ═════ */
 .md-card.fx-slide  { animation: mdSlide .6s cubic-bezier(.22, 1, .36, 1) both; }

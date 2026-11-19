@@ -111,6 +111,19 @@
   .pos-auto.on { color: #231700; background: linear-gradient(135deg, var(--sun), var(--sun2)); border-color: transparent; }
 
   .screen.no-anim .md-card { animation: none !important; }
+  /* редактор положення в передпоказі */
+  .pv-edit { position: absolute; z-index: 4; border: 2px dashed rgba(255,197,49,.9); border-radius: 10px; cursor: grab; touch-action: none; transition: background .15s; }
+  .pv-edit:hover { background: rgba(255,197,49,.07); }
+  .pv-edit.active { cursor: grabbing; background: rgba(255,197,49,.1); border-style: solid; }
+  .pv-rs { position: absolute; right: -9px; bottom: -9px; width: 18px; height: 18px; border-radius: 5px; background: var(--sun); border: 2px solid #231700; cursor: nwse-resize; box-shadow: 0 2px 8px rgba(0,0,0,.4); }
+  .pv-rs:hover { transform: scale(1.15); }
+  .pv-tag { position: absolute; left: -2px; top: -21px; font: 800 10.5px "Manrope", "Segoe UI", sans-serif; background: var(--sun); color: #231700; padding: 1px 6px; border-radius: 6px 6px 6px 0; pointer-events: none; white-space: nowrap; }
+  .pv-guide { position: absolute; z-index: 3; background: var(--sky); pointer-events: none; box-shadow: 0 0 6px var(--sky); }
+  .pv-guide.v { top: 0; bottom: 0; width: 1px; }
+  .pv-guide.h { left: 0; right: 0; height: 1px; }
+  .pv-help { font-size: 12px; color: var(--dim); text-align: center; margin-top: 8px; }
+  .link-reset { background: none; border: 0; color: var(--sun); font: 700 12px "Manrope", "Segoe UI", sans-serif; cursor: pointer; padding: 0 2px; }
+  .seg button { padding: 8px 2px; }
   .screen.no-anim .md-card::after { animation: none; }
 
   /* модератори */
@@ -366,7 +379,7 @@
             </div>
             <div>
               <label class="lbl">Розмір на екрані</label>
-              <div class="seg" id="sizeSeg"><button data-v="s">S</button><button data-v="m" class="on">M</button><button data-v="l">L</button><button data-v="xl">XL</button></div>
+              <div class="seg" id="sizeSeg"><button data-v="xs">XS</button><button data-v="s">S</button><button data-v="m" class="on">M</button><button data-v="l">L</button><button data-v="xl">XL</button><button data-v="xxl">XXL</button></div>
               <label class="lbl">✨ Ефект появи</label>
               <select class="input" id="fx">
                 <option value="auto">Авто (під позицію)</option><option value="slide">Ковзання з краю</option><option value="pop">Поп з відскоком</option>
@@ -394,6 +407,7 @@
             <div class="empty" id="pvEmpty">Додай щось ліворуч, і тут з'явиться передпоказ</div>
             <div class="md-stage" id="pvStage"></div>
           </div>
+          <div class="pv-help" id="pvHelp" hidden>✋ Перетягни плашку мишкою, куди треба · тягни жовтий кутик ↘, щоб змінити розмір</div>
           <div class="pv-actions">
             <button class="btn ghost" id="resetBtn" title="Очистити форму">Очистити</button>
             <button class="btn primary big" id="sendBtn" disabled>
@@ -497,6 +511,7 @@
   const DROP_TXT = { image: 'картинку', gif: 'гіфку', video: 'відео', audio: 'аудіофайл' };
 
   let me = null, cfg = null, type = 'image', size = 'm', pos = 'auto', st = null, limits = null, cdUntil = 0;
+  let cx = .5, cy = .5, scale = 1;   // своє місце (центр картки в частках екрана) і масштаб розтягуванням
   const files = { image: null, gif: null, video: null, audio: null };
   let favSel = null, lastShownKey = undefined;
   const blobUrls = {};
@@ -774,7 +789,7 @@
   function schedule(now) { clearTimeout(pvTimer); pvTimer = setTimeout(updatePreview, now ? 0 : 350); }
 
   function draftItem() {
-    const base = { id: 'preview', type, by: { name: me.name, login: me.login, avatar: me.avatar }, note: $('note').value.trim(), size, pos, fx: $('fx').value, duration: +$('duration').value };
+    const base = { id: 'preview', type, by: { name: me.name, login: me.login, avatar: me.avatar }, note: $('note').value.trim(), size, pos, scale, ...(pos === 'custom' ? { cx, cy } : {}), fx: $('fx').value, duration: +$('duration').value };
     const t = type;
     if (t === 'image' || t === 'gif') {
       if (files[t]) return { ...base, src: blobUrls[t] };
@@ -832,6 +847,7 @@
       empty.hidden = false;
       empty.textContent = item === 'loading' ? '⏳ Готую передпоказ…' : 'Додай щось ліворуч, і тут з\'явиться передпоказ';
       $('pvStage').innerHTML = '';
+      placeEditor();
       updateSend(false); return;
     }
     empty.hidden = true;
@@ -840,7 +856,9 @@
       pvKey = key;
       pvHandle = MDRender.render(item, $('pvStage'), { preview: true, reuse: pvHandle });
       fitPreview();
+      watchCard();
     }
+    placeEditor();
     updateSend(true);
   }
   let canSend = false;
@@ -855,6 +873,100 @@
   function fitPreview() {
     const s = $('screen').clientWidth / 1920;
     $('pvStage').style.transform = `scale(${s})`;
+    placeEditor();
+  }
+
+  // ═════ редактор у передпоказі: перетягування і розтягування ═════
+  let edEl = null, gV = null, gH = null, cardRO = null, dragging = false;
+  const SNAP = 22; // «магніт» у пікселях екрана 1920×1080
+  function ensureEditor() {
+    if (edEl) return;
+    const scr = $('screen');
+    edEl = document.createElement('div'); edEl.className = 'pv-edit'; edEl.hidden = true;
+    edEl.innerHTML = '<span class="pv-tag"></span><span class="pv-rs" title="Тягни, щоб змінити розмір"></span>';
+    gV = document.createElement('div'); gV.className = 'pv-guide v'; gV.hidden = true;
+    gH = document.createElement('div'); gH.className = 'pv-guide h'; gH.hidden = true;
+    scr.append(gV, gH, edEl);
+    edEl.addEventListener('pointerdown', onEdDown);
+    edEl.addEventListener('dblclick', () => { scale = 1; setPos('center'); toast('↺ Скинуто: центр, 100%'); });
+  }
+  function watchCard() {
+    if (cardRO) cardRO.disconnect();
+    if (!pvHandle) return;
+    cardRO = new ResizeObserver(() => placeEditor());
+    cardRO.observe(pvHandle.el);
+    // картка може ще анімуватися — підлаштовуємо рамку після завершення
+    setTimeout(placeEditor, 700); setTimeout(placeEditor, 2300);
+  }
+  function placeEditor() {
+    ensureEditor();
+    const on = !!pvHandle && pvHandle.el.isConnected && type !== 'fav' && $('pvEmpty').hidden;
+    edEl.hidden = !on; $('pvHelp').hidden = !on;
+    if (!on || dragging) return;
+    syncEditorBox();
+  }
+  function syncEditorBox() {
+    const r = pvHandle.el.getBoundingClientRect(), sr = $('screen').getBoundingClientRect();
+    Object.assign(edEl.style, { left: (r.left - sr.left) + 'px', top: (r.top - sr.top) + 'px', width: r.width + 'px', height: r.height + 'px' });
+    edEl.querySelector('.pv-tag').textContent = Math.round(scale * 100) + '%';
+  }
+  function onEdDown(e) {
+    if (!pvHandle || e.button !== 0) return;
+    e.preventDefault();
+    const resize = e.target.classList.contains('pv-rs');
+    const sr = $('screen').getBoundingClientRect(), k = sr.width / 1920;
+    let r = pvHandle.el.getBoundingClientRect();
+    const center = { x: (r.left + r.width / 2 - sr.left) / k, y: (r.top + r.height / 2 - sr.top) / k };
+    if (!resize && pos !== 'custom') {
+      // переходимо на «своє місце» з поточної точки, щоб картка не стрибнула
+      cx = center.x / 1920; cy = center.y / 1080;
+      setPos('custom', true);
+      pvKey = ''; updatePreview();
+      r = pvHandle.el.getBoundingClientRect();
+    }
+    const start = { x: e.clientX, y: e.clientY, scale, w: r.width / k, h: r.height / k, cx: center.x, cy: center.y };
+    start.left = start.cx - start.w / 2; start.top = start.cy - start.h / 2;
+    const grow = pos === 'center' ? 2 : 1;   // по центру росте в обидва боки; у «своєму місці» лівий верхній кут стоїть на місці
+    // тримаємо картку в межах екрана (якщо вона менша за екран)
+    const clampC = (c, size, max) => size >= max ? max / 2 : Math.min(max - size / 2, Math.max(size / 2, c));
+    const moveRoot = (x, y) => {
+      cx = Math.min(1, Math.max(0, x / 1920)); cy = Math.min(1, Math.max(0, y / 1080));
+      const root = pvHandle.root || pvHandle.el;
+      root.style.left = (cx * 1920) + 'px'; root.style.top = (cy * 1080) + 'px';
+    };
+    dragging = true; edEl.classList.add('active');
+    edEl.setPointerCapture(e.pointerId);
+    const move = ev => {
+      const dx = (ev.clientX - start.x) / k, dy = (ev.clientY - start.y) / k;
+      if (resize) {
+        let f = Math.max((start.w + dx * grow) / start.w, (start.h + dy * grow) / start.h);
+        if (pos === 'custom') f = Math.min(f, (1920 - start.left) / start.w, (1080 - start.top) / start.h); // не за край
+        scale = Math.min(4, Math.max(.2, Math.round(start.scale * f * 100) / 100));
+        pvHandle.el.style.setProperty('--card-scale', scale);
+        if (pos === 'custom') {
+          const nw = start.w * scale / start.scale, nh = start.h * scale / start.scale;
+          moveRoot(start.left + nw / 2, start.top + nh / 2);
+        }
+      } else {
+        const w = start.w, h = start.h;
+        let nx = clampC(start.cx + dx, w, 1920), ny = clampC(start.cy + dy, h, 1080), sx = null, sy = null;
+        // магніт до країв і центру
+        for (const [t, g] of [[w / 2, 0], [960, 960], [1920 - w / 2, 1920]]) if (Math.abs(nx - t) < SNAP) { nx = t; sx = g; }
+        for (const [t, g] of [[h / 2, 0], [540, 540], [1080 - h / 2, 1080]]) if (Math.abs(ny - t) < SNAP) { ny = t; sy = g; }
+        gV.hidden = sx === null; gH.hidden = sy === null;
+        if (sx !== null) gV.style.left = (sx * k) + 'px';
+        if (sy !== null) gH.style.top = (sy * k) + 'px';
+        moveRoot(nx, ny);
+      }
+      syncEditorBox();
+    };
+    const up = () => {
+      dragging = false; edEl.classList.remove('active'); gV.hidden = gH.hidden = true;
+      edEl.removeEventListener('pointermove', move); edEl.removeEventListener('pointerup', up); edEl.removeEventListener('pointercancel', up);
+      setPos(pos, true);   // оновити підказку
+      schedule(true);      // зберегти в передпоказ (без анімації)
+    };
+    edEl.addEventListener('pointermove', move); edEl.addEventListener('pointerup', up); edEl.addEventListener('pointercancel', up);
   }
 
   // ═════ пошук ═════
@@ -1096,12 +1208,21 @@
   }
 
   // ═════ позиція, ефект ═════
-  function setPos(v) {
+  function setPos(v, quiet) {
     pos = v;
     $$('#posGrid button').forEach(b => { b.classList.toggle('on', b.dataset.v === v); b.classList.toggle('auto', v === 'auto' && b.dataset.v === autoPos()); });
     $('posAuto').classList.toggle('on', v === 'auto');
-    $('posHint').textContent = v === 'auto' ? (type === 'audio' ? 'Авто: правий нижній кут, впритул' : 'Авто: як задано в OBS (зазвичай центр)') : (['tl', 'tr', 'bl', 'br'].includes(v) ? 'Кут: впритул до краю екрана' : '');
-    replay();
+    const sc = scale !== 1 ? ` · масштаб ${Math.round(scale * 100)}%` : '';
+    const h = $('posHint');
+    h.textContent = (v === 'custom' ? `📍 Своє місце (${Math.round(cx * 100)}%, ${Math.round(cy * 100)}%)`
+      : v === 'auto' ? (type === 'audio' ? 'Авто: правий нижній кут, впритул' : 'Авто: як задано в OBS (зазвичай центр)')
+      : ['tl', 'tr', 'bl', 'br', 'top', 'bottom', 'left', 'right'].includes(v) ? 'Впритул до краю екрана' : '') + sc;
+    if (v === 'custom' || scale !== 1) {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'link-reset'; b.textContent = '↺ скинути';
+      b.onclick = () => { scale = 1; setPos('auto'); };
+      h.append(' ', b);
+    }
+    if (!quiet) replay();
   }
   const autoPos = () => type === 'audio' ? 'br' : 'center';
   let replayT = null;
@@ -1260,6 +1381,8 @@
     fd.append('duration', $('duration').value);
     fd.append('size', size);
     fd.append('pos', pos);
+    fd.append('scale', String(scale));
+    if (pos === 'custom') { fd.append('cx', String(cx)); fd.append('cy', String(cy)); }
     fd.append('fx', $('fx').value);
     if (type === 'fav') {
       if (!favSel) return;
