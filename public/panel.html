@@ -445,10 +445,10 @@
         <div class="vol"><input type="range" min="0" max="100" value="70" id="nVol"><output id="nVolOut">70</output></div>
         <div class="hint" id="nHint">Звучить щоразу, коли модер щось показує. Так ти точно помітиш.</div>
         <label class="lbl">Посилання для OBS → Browser Source (1920×1080)</label>
-        <div class="copyline"><input class="input" id="obsUrl" readonly><button class="btn primary" data-copy="obsUrl">Копіювати</button></div>
+        <div class="copyline"><input class="input" id="obsUrl" data-secret readonly><button class="btn primary" data-copy="obsUrl">Копіювати</button></div>
         <div class="hint" id="overlayState"></div>
         <label class="lbl">Посилання для модерів</label>
-        <div class="copyline"><input class="input" id="modUrl" readonly><button class="btn" data-copy="modUrl">Копіювати</button></div>
+        <div class="copyline"><input class="input" id="modUrl" data-secret readonly><button class="btn" data-copy="modUrl">Копіювати</button></div>
         <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
           <a class="btn" href="/setup" id="setupLink" hidden>⚙️ Налаштування</a>
           <button class="btn ghost" id="clearHist">Очистити історію</button>
@@ -471,6 +471,7 @@
 <div class="glass toast" id="toast"></div>
 
 <script src="/assets/render.js"></script>
+<script src="/assets/secret.js"></script>
 <script>
 (() => {
   const $ = id => document.getElementById(id);
@@ -557,6 +558,7 @@
 
     if (me.role === 'broadcaster') {
       $('manage').hidden = false;
+      MDSecret.enhance($('manage'));
       $('obsUrl').value = cfg.urls.overlayLocal;
       $('modUrl').value = cfg.urls.panel;
       if (cfg.isLocal) { $('setupLink').hidden = false; $('setupTop').hidden = false; }

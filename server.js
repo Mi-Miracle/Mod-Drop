@@ -205,7 +205,7 @@ async function restartTunnel() {
     tunnel.listener = await ngrok.forward(opts);
     tunnel.url = tunnel.listener.url();
     tunnel.status = 'on';
-    console.log(`🌍 ngrok: ${tunnel.url}`);
+    console.log('🌍 ngrok запущено (адреса — на сторінці налаштувань)');
   } catch (e) {
     tunnel.status = 'error';
     tunnel.error = humanNgrokError(e);
@@ -408,6 +408,14 @@ setup.post('/api/reset', async (req, res) => {
 });
 
 // ═════ Оновлення з GitHub ═════
+// автооновлення при запуску (налаштування лежить відкрито в data/launcher.json — його читає launcher.js до розшифрування)
+const LAUNCHER_SETTINGS = path.join(DATA_DIR, 'launcher.json');
+const readLauncher = () => { try { return JSON.parse(fs.readFileSync(LAUNCHER_SETTINGS, 'utf8')); } catch { return {}; } };
+setup.post('/api/update/auto', requireAdmin, (req, res) => {
+  const s = { ...readLauncher(), autoUpdate: !!(req.body || {}).enabled };
+  fs.writeFileSync(LAUNCHER_SETTINGS, JSON.stringify(s, null, 2));
+  res.json({ ok: true, autoUpdate: s.autoUpdate });
+});
 setup.get('/api/update', requireAdmin, async (req, res) => {
   if (req.query.force === '1' || !upd.checkedAt) await checkUpdates();
   res.json(updView());
@@ -453,7 +461,7 @@ async function checkUpdates() {
   })();
   return updChecking;
 }
-const updView = () => ({ ...upd, repo: updater.REPO_URL });
+const updView = () => ({ ...upd, repo: updater.REPO_URL, autoUpdate: readLauncher().autoUpdate !== false });
 async function restartProcess() {
   await stopTunnel();
   if (process.env.MODDROP_LAUNCHER) process.exit(42);   // launcher.js перезапустить
@@ -1132,7 +1140,7 @@ app.listen(PORT, '0.0.0.0', async () => {
       await applyConfig(sanitizeConfig(await store.load(masterPassword), DEFAULTS()), null);
       console.log('🔓 Розблоковано через MASTER_PASSWORD');
       const u = urls();
-      console.log(`   Панель модерів:  ${u.panel}\n   Оверлей для OBS: ${u.overlayLocal}\n`);
+      console.log('   Посилання для OBS і модерів — на сторінці налаштувань\n');
       return;
     } catch (e) { masterPassword = null; console.error('❌ MASTER_PASSWORD не підійшов'); }
   }
