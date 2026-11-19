@@ -89,12 +89,17 @@
     }
     applyFx(card, item.fx, pos, customSide(item.cx ?? .5, item.cy ?? .5));
 
-    const head = el('div', 'md-head');
-    if (item.by && item.by.avatar) { const a = el('img'); a.src = item.by.avatar; a.onerror = () => a.remove(); head.appendChild(a); }
-    head.appendChild(el('span', null, 'від'));
-    head.appendChild(el('span', 'who', (item.by && (item.by.name || item.by.login)) || 'модер'));
-    head.appendChild(el('span', 'tag', TAGS[item.type] || ''));
-    card.appendChild(head);
+    // рамка: full — рамка + «від …»; noname — рамка без шапки; none — тільки сам контент
+    const frame = ['full', 'noname', 'none'].includes(item.frame) ? item.frame : 'full';
+    card.classList.add('frame-' + frame);
+    if (frame === 'full') {
+      const head = el('div', 'md-head');
+      if (item.by && item.by.avatar) { const a = el('img'); a.src = item.by.avatar; a.onerror = () => a.remove(); head.appendChild(a); }
+      head.appendChild(el('span', null, 'від'));
+      head.appendChild(el('span', 'who', (item.by && (item.by.name || item.by.login)) || 'модер'));
+      head.appendChild(el('span', 'tag', TAGS[item.type] || ''));
+      card.appendChild(head);
+    }
 
     const body = el('div', 'md-body');
     card.appendChild(body);
@@ -234,7 +239,7 @@
 
     if (item.note) card.appendChild(el('div', 'md-note', item.note));
 
-    if (item.duration > 0) {
+    if (item.duration > 0 && frame !== 'none') {
       const bar = el('div', 'md-bar');
       const total = item.duration * 1000;
       const left = preview ? total : Math.max(0, total - (Date.now() - (item.shownAt || Date.now())));

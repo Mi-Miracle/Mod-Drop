@@ -124,6 +124,7 @@
   .pv-help { font-size: 12px; color: var(--dim); text-align: center; margin-top: 8px; }
   .link-reset { background: none; border: 0; color: var(--sun); font: 700 12px "Manrope", "Segoe UI", sans-serif; cursor: pointer; padding: 0 2px; }
   .seg button { padding: 8px 2px; }
+  #frameSeg button { font-size: 12px; }
   .screen.no-anim .md-card::after { animation: none; }
 
   /* модератори */
@@ -380,6 +381,12 @@
             <div>
               <label class="lbl">Розмір на екрані</label>
               <div class="seg" id="sizeSeg"><button data-v="xs">XS</button><button data-v="s">S</button><button data-v="m" class="on">M</button><button data-v="l">L</button><button data-v="xl">XL</button><button data-v="xxl">XXL</button></div>
+              <label class="lbl">🖼 Рамка</label>
+              <div class="seg" id="frameSeg" title="Відправника завжди видно в історії">
+                <button data-v="full" class="on" title="Рамка і «від кого»">Повна</button>
+                <button data-v="noname" title="Рамка без шапки «від кого»">Без імені</button>
+                <button data-v="none" title="Тільки сам контент: без рамки, фону й підпису">Без рамки</button>
+              </div>
               <label class="lbl">✨ Ефект появи</label>
               <select class="input" id="fx">
                 <option value="auto">Авто (під позицію)</option><option value="slide">Ковзання з краю</option><option value="pop">Поп з відскоком</option>
@@ -511,7 +518,15 @@
   const DROP_TXT = { image: 'картинку', gif: 'гіфку', video: 'відео', audio: 'аудіофайл' };
 
   let me = null, cfg = null, type = 'image', size = 'm', pos = 'auto', st = null, limits = null, cdUntil = 0;
-  let cx = .5, cy = .5, scale = 1;   // своє місце (центр картки в частках екрана) і масштаб розтягуванням
+  let cx = .5, cy = .5, scale = 1;
+  let frame = 'full';   // full | noname | none — запам'ятовується окремо для кожної вкладки
+  const frameKey = t => 'md_frame_' + t;
+  const loadFrame = t => { try { return localStorage.getItem(frameKey(t)) || 'full'; } catch { return 'full'; } };
+  function setFrame(v, save) {
+    frame = v;
+    $$('#frameSeg button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
+    if (save) try { localStorage.setItem(frameKey(type), v); } catch {}
+  }   // своє місце (центр картки в частках екрана) і масштаб розтягуванням
   const files = { image: null, gif: null, video: null, audio: null };
   let favSel = null, lastShownKey = undefined;
   const blobUrls = {};
@@ -596,6 +611,7 @@
     $('replayBtn').onclick = replay;
     $('posGrid').onclick = e => { const b = e.target.closest('button'); if (b) setPos(b.dataset.v); };
     $('posAuto').onclick = () => setPos('auto');
+    $('frameSeg').onclick = e => { const b = e.target.closest('button'); if (!b) return; setFrame(b.dataset.v, true); schedule(true); };
     $('sizeSeg').addEventListener('click', () => setTimeout(replay));
     if (cfg.limits) setLimits(cfg.limits);
     $$('[data-search]').forEach(initSearch);
@@ -701,6 +717,7 @@
   // ═════ вкладки й форма ═════
   function setType(t) {
     type = t;
+    if ($('frameSeg')) setFrame(loadFrame(t));
     if ($('posGrid')) setTimeout(() => setPos(pos));
     $$('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
     $$('.pane').forEach(p => p.hidden = p.dataset.pane !== t);
@@ -789,7 +806,7 @@
   function schedule(now) { clearTimeout(pvTimer); pvTimer = setTimeout(updatePreview, now ? 0 : 350); }
 
   function draftItem() {
-    const base = { id: 'preview', type, by: { name: me.name, login: me.login, avatar: me.avatar }, note: $('note').value.trim(), size, pos, scale, ...(pos === 'custom' ? { cx, cy } : {}), fx: $('fx').value, duration: +$('duration').value };
+    const base = { id: 'preview', type, by: { name: me.name, login: me.login, avatar: me.avatar }, note: $('note').value.trim(), size, pos, scale, frame, ...(pos === 'custom' ? { cx, cy } : {}), fx: $('fx').value, duration: +$('duration').value };
     const t = type;
     if (t === 'image' || t === 'gif') {
       if (files[t]) return { ...base, src: blobUrls[t] };
@@ -1382,6 +1399,7 @@
     fd.append('size', size);
     fd.append('pos', pos);
     fd.append('scale', String(scale));
+    fd.append('frame', frame);
     if (pos === 'custom') { fd.append('cx', String(cx)); fd.append('cy', String(cy)); }
     fd.append('fx', $('fx').value);
     if (type === 'fav') {

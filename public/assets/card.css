@@ -168,3 +168,21 @@
 .md-note::before { content: "💬 "; }
 
 .md-bar { position: absolute; left: 0; bottom: 0; height: 6px; width: 100%; background: linear-gradient(90deg, var(--sky), var(--sun)); transform-origin: left; will-change: transform; }
+
+/* ═════ Без рамки: тільки контент ═════ */
+.md-card.frame-none { border: 0 !important; background: transparent; box-shadow: none; overflow: visible; }
+.md-card.frame-none::after { display: none; }
+.md-card.frame-none .md-media { background: transparent; }
+.md-card.frame-none .md-embed { border-radius: 14px; overflow: hidden; box-shadow: 0 18px 50px rgba(0,0,0,.45); }
+.md-card.frame-none.t-video .md-media { border-radius: 14px; }
+/* картинка/GIF — зовсім «гола», з легкою тінню під контуром (працює й з прозорими GIF) */
+.md-card.frame-none.t-image, .md-card.frame-none.t-gif { border-radius: 0 !important; }
+.md-card.frame-none.t-image .md-media, .md-card.frame-none.t-gif .md-media { filter: drop-shadow(0 14px 34px rgba(0,0,0,.45)); }
+/* текст, стаття, аудіо без фону читати важко — лишаємо темну підкладку, але без рамки й шапки */
+.md-card.frame-none.t-text, .md-card.frame-none.t-article, .md-card.frame-none.t-audio {
+  background: rgba(14, 13, 20, .86); border-radius: 22px !important; overflow: hidden; box-shadow: 0 18px 50px rgba(0,0,0,.45); }
+/* пояснення без рамки — окрема «плашка-підпис» під контентом */
+.md-card.frame-none:is(.t-image, .t-gif, .t-video) .md-note { align-self: center; margin-top: 12px; border: 0; border-radius: 14px;
+  background: rgba(10, 10, 16, .78); max-width: 100%; }
+/* без імені: рамка лишається, просто без шапки */
+.md-card.frame-noname .md-body { border-top: 0; }

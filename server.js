@@ -998,6 +998,7 @@ async function buildItem(req) {
     size: SIZES.includes(b.size) ? b.size : 'm',
     pos: POSITIONS.includes(b.pos) ? b.pos : 'auto',
     fx: EFFECTS.includes(b.fx) ? b.fx : 'auto',
+    frame: ['full', 'noname', 'none'].includes(b.frame) ? b.frame : 'full',
     // своє місце (перетягнуте в передпоказі): центр картки в частках екрана + масштаб розтягуванням
     ...(b.pos === 'custom' ? { cx: clampNum(b.cx, 0, 1, .5), cy: clampNum(b.cy, 0, 1, .5) } : {}),
     scale: clampNum(b.scale, 0.2, 4, 1),
