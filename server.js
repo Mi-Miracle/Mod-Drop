@@ -16,6 +16,7 @@ const updater = require('./lib/updater');
 const rufilter = require('./lib/rufilter');
 const search = require('./lib/search');
 const { safeHttpUrl, parseTime, detectEmbed, fetchPreview, clamp } = require('./lib/media');
+const { snapshot } = require('./lib/snapshot');
 
 const PORT = Number(process.env.PORT) || 3000;
 const DATA_DIR = path.join(__dirname, 'data');
@@ -752,8 +753,17 @@ app.post('/api/resolve', requireUser, async (req, res) => {
   const url = safeHttpUrl((req.body || {}).url);
   if (!url) return res.status(400).json({ error: 'Невірне посилання' });
   if (type === 'article') {
-    try { return res.json({ meta: await fetchPreview(url) }); }
-    catch (e) { return res.json({ meta: {}, warn: 'Не вдалося отримати прев\'ю сторінки' }); }
+    const wantPage = (req.body || {}).mode !== 'card';
+    const [pv, sh] = await Promise.allSettled([fetchPreview(url), wantPage ? snapshot(url, UPLOAD_DIR) : Promise.reject(new Error('card'))]);
+    const meta = pv.status === 'fulfilled' ? { ...pv.value } : {};
+    if (sh.status === 'fulfilled') {
+      const v = sh.value;
+      for (const k of ['title', 'description', 'site', 'image']) if (!meta[k] && v[k]) meta[k] = v[k];
+      return res.json({ meta, shot: `/media/${v.file}`, shotW: v.width, shotH: v.height });
+    }
+    if (wantPage) console.warn('snapshot fail:', url, sh.reason && sh.reason.message);
+    const warn = wantPage ? 'Не вдалося зняти сторінку — покажу картку з описом' : (pv.status === 'fulfilled' ? '' : 'Не вдалося отримати прев\'ю сторінки');
+    return res.json({ meta, warn });
   }
   const embed = detectEmbed(url);
   if (type === 'audio' && embed && embed.kind !== 'youtube') return res.json({ error: 'Для аудіо підтримується YouTube або пряме посилання на файл' });
@@ -1080,8 +1090,17 @@ async function buildItem(req) {
     let meta = {};
     try { meta = await fetchPreview(url); } catch (e) { console.warn('preview fail:', url, e.message); }
     const host = new URL(url).hostname.replace(/^www\./, '');
+    const mode = b.mode === 'card' ? 'card' : 'page';
+    let page = {};
+    if (mode === 'page') {
+      try {
+        const v = await snapshot(url, UPLOAD_DIR);
+        for (const k of ['title', 'description', 'site', 'image']) if (!meta[k] && v[k]) meta[k] = v[k];
+        page = { shot: `/media/${v.file}`, shotW: v.width, shotH: v.height, local: v.file };
+      } catch (e) { console.warn('snapshot fail:', url, e.message); }
+    }
     return {
-      ...base, url,
+      ...base, url, mode, ...page,
       title: clamp(b.title, 200) || meta.title || host,
       description: clamp(b.description, 400) || meta.description || '',
       image: meta.image || '',

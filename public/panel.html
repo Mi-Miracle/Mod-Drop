@@ -349,6 +349,9 @@
             <label class="lbl">Посилання на статтю / сторінку</label>
             <input class="input" type="url" data-url="article" placeholder="https://…">
             <div data-detect="article"></div>
+            <label class="lbl">Як показати</label>
+            <div class="seg" id="artSeg"><button data-v="page" class="on">📄 Сторінка з картинками</button><button data-v="card">🗂 Картка (заголовок + опис)</button></div>
+            <div class="hint" style="margin-top:6px">«Сторінка» — справжній вигляд сайту, який плавно гортається вниз під час показу.</div>
             <label class="lbl">Свій заголовок (інакше візьметься зі сторінки)</label>
             <input class="input" data-opt="article.title" maxlength="200">
             <label class="lbl">Свій опис (необов'язково)</label>
@@ -611,6 +614,8 @@
     $('replayBtn').onclick = replay;
     $('posGrid').onclick = e => { const b = e.target.closest('button'); if (b) setPos(b.dataset.v); };
     $('posAuto').onclick = () => setPos('auto');
+    $('artSeg').onclick = e => { const b = e.target.closest('button'); if (!b) return; artMode = b.dataset.v; try { localStorage.md_artmode = artMode; } catch {} $$('#artSeg button').forEach(x => x.classList.toggle('on', x === b)); schedule(true); };
+    $$('#artSeg button').forEach(x => x.classList.toggle('on', x.dataset.v === artMode));
     $('frameSeg').onclick = e => { const b = e.target.closest('button'); if (!b) return; setFrame(b.dataset.v, true); schedule(true); };
     $('sizeSeg').addEventListener('click', () => setTimeout(replay));
     if (cfg.limits) setLimits(cfg.limits);
@@ -787,11 +792,12 @@
   }
 
   // ═════ розпізнавання посилань (на сервері) ═════
+  let artMode = (() => { try { return localStorage.md_artmode === 'card' ? 'card' : 'page'; } catch { return 'page'; } })();
   function resolveUrl(t, url) {
-    const key = t + '|' + url;
+    const key = t + '|' + url + (t === 'article' ? '|' + artMode : '');
     if (resolved[key] || pending.has(key)) return resolved[key];
     pending.add(key);
-    api('/api/resolve', { json: { type: t, url } })
+    api('/api/resolve', { json: { type: t, url, mode: t === 'article' ? artMode : undefined } })
       .then(r => resolved[key] = r).catch(e => resolved[key] = { error: e.message })
       .finally(() => { pending.delete(key); schedule(true); });
     return null;
@@ -847,11 +853,11 @@
       if (!u) { setDetect('article', ''); return null; }
       if (!/^https?:\/\//i.test(u)) { setDetect('article', 'Посилання має починатися з https://', true); return null; }
       const r = resolveUrl('article', u);
-      if (!r) { setDetect('article', '⏳ Завантажую прев\'ю сторінки…'); return 'loading'; }
+      if (!r) { setDetect('article', artMode === 'page' ? '📸 Знімаю сторінку… (кілька секунд)' : '⏳ Завантажую прев\'ю сторінки…'); return 'loading'; }
       const m = r.meta || {};
-      setDetect('article', r.warn ? r.warn : '✓ Прев\'ю отримано', !!r.warn);
+      setDetect('article', r.warn ? r.warn : r.shot ? '✓ Сторінку знято' : '✓ Прев\'ю отримано', !!r.warn);
       let host = u; try { host = new URL(u).hostname.replace(/^www\./, ''); } catch {}
-      return { ...base, url: u, title: opt('article.title').trim() || m.title || host, description: opt('article.description').trim() || m.description || '', image: m.image || '', site: m.site || host };
+      return { ...base, url: u, title: opt('article.title').trim() || m.title || host, description: opt('article.description').trim() || m.description || '', image: m.image || '', site: m.site || host, mode: artMode, ...(r.shot && artMode === 'page' ? { shot: r.shot, shotW: r.shotW, shotH: r.shotH } : {}) };
     }
     return null;
   }
@@ -1419,7 +1425,7 @@
     } else if (type === 'text') {
       fd.append('title', opt('text.title')); fd.append('text', opt('text.text'));
     } else if (type === 'article') {
-      fd.append('url', urlOf('article')); fd.append('title', opt('article.title')); fd.append('description', opt('article.description'));
+      fd.append('url', urlOf('article')); fd.append('title', opt('article.title')); fd.append('description', opt('article.description')); fd.append('mode', artMode);
     }
 
     const btn = $('sendBtn'), prog = $('prog');

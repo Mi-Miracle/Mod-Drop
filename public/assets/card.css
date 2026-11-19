@@ -186,3 +186,16 @@
   background: rgba(10, 10, 16, .78); max-width: 100%; }
 /* без імені: рамка лишається, просто без шапки */
 .md-card.frame-noname .md-body { border-top: 0; }
+
+/* ── стаття як сторінка (знімок) ── */
+.md-page { --pw: min(var(--mw), 1400px); width: var(--pw); display: flex; flex-direction: column; }
+.md-page-bar { display: flex; align-items: center; gap: 14px; padding: 10px 16px; background: rgba(20,20,28,.92); font-size: calc(var(--fs) * .42); min-width: 0; }
+.md-page-bar .dots { flex: none; width: 52px; height: 12px; background:
+  radial-gradient(circle at 6px 6px, #ff5f57 5px, transparent 6px), radial-gradient(circle at 26px 6px, #febc2e 5px, transparent 6px), radial-gradient(circle at 46px 6px, #28c840 5px, transparent 6px); }
+.md-page-bar .addr { flex: none; padding: 4px 14px; border-radius: 999px; background: rgba(255,255,255,.08); color: #cfd3dc; font-weight: 700; }
+.md-page-bar .ttl { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: .8; }
+.md-page-view { position: relative; overflow: hidden; background: #fff;
+  height: min(calc(var(--pw) * var(--ratio, .7)), calc(var(--mh) - 170px)); }
+.md-page-view img { display: block; width: 100%; height: auto; will-change: transform; }
+.md-card.frame-none.t-article:has(.md-page) { background: transparent; padding: 0; }
+.md-card.frame-none .md-page { border-radius: 14px; overflow: hidden; box-shadow: 0 18px 50px rgba(0,0,0,.45); }

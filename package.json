@@ -1,6 +1,6 @@
 {
   "name": "mod-drop",
-  "version": "2.7.0",
+  "version": "2.8.0",
   "description": "Модери кидають картинку/відео/текст/статтю — воно одразу з'являється на стрімі (OBS оверлей)",
   "main": "launcher.js",
   "scripts": {
@@ -14,6 +14,7 @@
     "adm-zip": "^0.6.1",
     "cookie-session": "^2.1.0",
     "express": "^4.21.2",
-    "multer": "^1.4.5-lts.1"
+    "multer": "^1.4.5-lts.1",
+    "puppeteer-core": "^25.18.1"
   }
 }

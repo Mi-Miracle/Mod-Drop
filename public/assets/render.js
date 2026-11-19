@@ -226,6 +226,34 @@
     }
 
     // ── стаття ──
+    else if (item.type === 'article' && item.shot) {
+      // сторінка «як є»: знімок у рамці браузера, що плавно гортається вниз
+      const a = el('div', 'md-page');
+      const bar = el('div', 'md-page-bar');
+      bar.appendChild(el('span', 'dots'));
+      let host = item.site || ''; try { host = new URL(item.url).hostname.replace(/^www\./, ''); } catch {}
+      bar.appendChild(el('span', 'addr', '🔒 ' + host));
+      if (item.title) bar.appendChild(el('span', 'ttl', item.title));
+      const view = el('div', 'md-page-view');
+      const img = el('img'); img.alt = ''; img.decoding = 'async';
+      if (item.shotW && item.shotH) view.style.setProperty('--ratio', item.shotH / item.shotW);
+      view.appendChild(img); a.append(bar, view); body.appendChild(a);
+      let anim = null;
+      const start = () => {
+        const dist = img.offsetHeight - view.clientHeight;
+        if (dist <= 4) return;
+        // спокійно, як людина гортає: ~90 px/с; довгі сторінки просто не догортаються до кінця
+        const hold = 2000, scroll = Math.max(1500, dist / 90 * 1000), total = hold * 2 + scroll;
+        const kf = [{ transform: 'translateY(0)', offset: 0 }, { transform: 'translateY(0)', offset: hold / total, easing: 'cubic-bezier(.3,0,.7,1)' },
+          { transform: `translateY(${-dist}px)`, offset: (hold + scroll) / total }, { transform: `translateY(${-dist}px)`, offset: 1 }];
+        anim = img.animate(kf, { duration: total, easing: 'linear', fill: 'forwards', iterations: preview ? Infinity : 1, direction: preview ? 'alternate' : 'normal' });
+        if (!preview && item.shownAt) anim.currentTime = Math.min(total, Math.max(0, Date.now() - item.shownAt));
+      };
+      img.onload = () => requestAnimationFrame(() => requestAnimationFrame(start));
+      img.src = item.shot;
+      cleanups.push(() => { if (anim) anim.cancel(); });
+    }
+
     else if (item.type === 'article') {
       const a = el('div', 'md-article');
       if (item.image) { const c = el('img', 'cover'); c.src = item.image; c.onerror = () => c.remove(); a.appendChild(c); }
